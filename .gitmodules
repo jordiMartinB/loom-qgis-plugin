@@ -1,0 +1,3 @@
+[submodule "src/loom"]
+	path = src/loom
+	url = https://github.com/jordiMartinB/loom.git
