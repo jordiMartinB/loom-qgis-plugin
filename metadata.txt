@@ -1,0 +1,12 @@
+name=loom-qgis-plugin
+description=A QGIS plugin for managing and visualizing loom data.
+version=0.1.0
+author=Your Name
+email=your.email@example.com
+qgisMinimumVersion=3.0
+category=Plugins
+icon=resources/icon.png
+homepage=https://github.com/yourusername/loom-qgis-plugin
+repository=https://github.com/yourusername/loom-qgis-plugin
+tracker=https://github.com/yourusername/loom-qgis-plugin/issues
+longDescription=This plugin provides tools for managing and visualizing loom data within QGIS. It aims to enhance the user's ability to work with loom files and integrate them into their GIS workflows.
