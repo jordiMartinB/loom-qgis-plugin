@@ -43,6 +43,9 @@ set(LOOM_PYTHON_SOURCES
 # Create the first Python module
 pybind11_add_module(loom_python ${LOOM_PYTHON_SOURCES})
 
+# Link the required libraries to loom_python
+target_link_libraries(loom_python PRIVATE loom_dep shared_dep dot_dep pb_util_graph pb_util pb_util_json pb_util_geo -lpthread)
+
 # Set output properties for the first Python module
 set_target_properties(loom_python PROPERTIES
     PREFIX ""  # Remove the "lib" prefix
@@ -62,6 +65,9 @@ set(OCTI_PYTHON_SOURCES
 # Create the second Python module
 pybind11_add_module(octi_python ${OCTI_PYTHON_SOURCES})
 
+# Link the required libraries to octi_python
+target_link_libraries(octi_python PRIVATE octi_dep shared_dep pb_util_geo pb_util_graph pb_util_json pb_util dot_dep -lpthread)
+
 # Set output properties for the second Python module
 set_target_properties(octi_python PROPERTIES
     PREFIX ""  # Remove the "lib" prefix
@@ -72,17 +78,19 @@ set_target_properties(octi_python PROPERTIES
 # Python Shared Library 3 (topo_python)
 # ============================
 
-# Add source files for the second Python module
+# Add source files for the third Python module
 set(TOPO_PYTHON_SOURCES
     src/loom/src/topo/Bindings.cpp
     src/loom/src/topo/TopoMain.cpp
-
 )
 
-# Create the second Python module
+# Create the third Python module
 pybind11_add_module(topo_python ${TOPO_PYTHON_SOURCES})
 
-# Set output properties for the second Python module
+# Link the required libraries to topo_python
+target_link_libraries(topo_python PRIVATE topo_dep shared_dep dot_dep pb_util_geo pb_util_graph pb_util_json pb_util -lpthread)
+
+# Set output properties for the third Python module
 set_target_properties(topo_python PROPERTIES
     PREFIX ""  # Remove the "lib" prefix
     SUFFIX ".so"  # Ensure the output is a Python module
