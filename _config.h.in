@@ -1,0 +1,32 @@
+#ifndef OCTI_CONFIG_H
+#define OCTI_CONFIG_H
+
+// Define the version of the library
+#define OCTI_VERSION "@PROJECT_VERSION@"
+#define VERSION_FULL "@VERSION_GIT_FULL@"
+
+// Define platform-specific macros
+#cmakedefine _WIN32
+#cmakedefine _LINUX
+
+#endif // OCTI_CONFIG_H
+
+#ifndef LOOM_CONFIG_H_
+#define LOOM_CONFIG_H_
+
+
+// version number from cmake version module
+#define VERSION_FULL "@VERSION_GIT_FULL@"
+
+#endif  // LOOM_CONFIG_H_N
+
+#ifndef SRC_TRANSITMAP_CONFIG_H_
+#define SRC_TRANSITMAP_CONFIG_H_
+
+
+// version number from cmake version module
+#define VERSION_FULL "@VERSION_GIT_FULL@"
+
+#endif  // SRC_TRANSITMAP_CONFIG_H_N
+
+
