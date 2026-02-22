@@ -13,7 +13,29 @@ MODULES = ["loom_python", "octi_python", "topo_python"]
 EXAMPLES_DIR = "src/loom/examples/"
 
 # Define the output directory for the results
-OUTPUT_DIR = "output/"
+OUTPUT_DIR = "tests/output/"
+
+# Define the configuration for Loom (if needed for the tests)
+CONFIG_LOOM = {
+  "no-untangle": False,
+  "output-stats": False,
+  "no-prune": False,
+  "same-seg-cross-pen": 4.0,
+  "diff-seg-cross-pen": 1.0,
+  "sep-pen": 3.0,
+  "in-stat-cross-pen-same-seg": 12.0,
+  "in-stat-cross-pen-diff-seg": 3.0,
+  "in-stat-sep-pen": 9.0,
+  "ilp-num-threads": 0,
+  "ilp-time-limit": -1.0,
+  "ilp-solver": "gurobi",
+  "optim-method": "comb-no-ilp",
+  "optim-runs": 1,
+  "dbg-output-path": ".",
+  "output-optgraph": False,
+  "write-stats": False,
+  "from-dot": False
+}
 
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -41,13 +63,13 @@ class TestIO(unittest.TestCase):
                 module = importlib.import_module(module_name)
 
                 # Pass the JSON content as a single string in a list to the main function
-                result = module.main([json_content])  # Wrap json_content in a list
+                result = module.run([json_content, json.dumps(CONFIG_LOOM)])  # Wrap json_content in a list
 
                 # Save the output to a corresponding *-out.json file
                 output_filename = f"{base_name}-{module_name}-out.json"
                 output_path = os.path.join(OUTPUT_DIR, output_filename)
                 with open(output_path, "w") as out_file:
-                    json.dump(result, out_file, indent=4)
+                    out_file.write(result)
 
                 print(f"Processed {filename} with {module_name}, output saved to {output_filename}")
 
