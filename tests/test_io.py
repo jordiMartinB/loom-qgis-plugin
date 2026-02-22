@@ -2,8 +2,6 @@ import os
 import sys
 import json
 import importlib
-import tempfile
-from pathlib import Path
 import unittest
 
 # Define the shared libraries to test
@@ -74,7 +72,8 @@ class TestIO(unittest.TestCase):
                 print(f"Processed {filename} with {module_name}, output saved to {output_filename}")
 
             except Exception as e:
-                print(f"Error processing {filename} with {module_name}: {e}")
+                # Fail the test if an exception occurs
+                self.fail(f"Error processing {filename} with {module_name}: {e}")
 
 if __name__ == "__main__":
     unittest.main()
