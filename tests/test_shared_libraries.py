@@ -1,12 +1,25 @@
-import unittest
-import importlib
-import importlib.util
 import os
 import sys
-from pathlib import Path
+import json
+import importlib
+import subprocess
+import unittest
+import importlib.util
 import ctypes
+from pathlib import Path
+import tempfile
 
+# Define the shared libraries to test
 MODULES = ["loom_python", "octi_python", "topo_python"]
+
+# Define the directory containing the example JSON files
+EXAMPLES_DIR = "src/loom/examples/"
+
+# Define the output directory for the results
+OUTPUT_DIR = "output/"
+
+# Ensure the output directory exists
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Add repo dirs that contain the compiled .so modules to sys.path so imports succeed
 root = Path(__file__).resolve().parent.parent
@@ -82,5 +95,6 @@ class TestSharedLibraries(unittest.TestCase):
                 except Exception as e:
                     self.fail(f"Error while checking dependencies for {name}: {e}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
+    test_shared_libraries()

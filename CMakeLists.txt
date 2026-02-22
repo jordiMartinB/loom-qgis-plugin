@@ -35,6 +35,7 @@ configure_file(
 
 # Set the output directory for shared libraries
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+set(CMAKE_BUILD_TYPE Debug)
 
 # Force position independent code so static archives can be linked into shared libs
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

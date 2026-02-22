@@ -3,3 +3,7 @@ build/
 lib/
 lib/
 lib/
+__pycache__/
+**/__pycache__/
+*.pyc
+.vscode/
