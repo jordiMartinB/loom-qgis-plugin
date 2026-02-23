@@ -5,7 +5,7 @@ import importlib
 import unittest
 
 # Define the shared libraries to test
-MODULES = ["octi","loom"]
+MODULES = ["octi","loom","topo"]
 
 # Define the directory containing the example JSON files
 EXAMPLES_DIR = "src/loom/examples/"
