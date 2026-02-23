@@ -57,7 +57,7 @@ Below is an example of a valid JSON configuration file with the default values:
     "from-dot": false
   },
   "octi": {
-    "abortAfter": 0,
+    "abortAfter": -1,
     "optimMode": "heur",
     "hananIters": 1,
     "heurLocSearchIters": 100,
