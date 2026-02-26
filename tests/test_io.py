@@ -1,11 +1,9 @@
 import os
 import sys
 import json
-import importlib
+import importlib.util
 import unittest
-
-# Define the shared libraries to test
-MODULES = ["octi","loom","topo"]
+from pathlib import Path
 
 # Define the directory containing the example JSON files
 EXAMPLES_DIR = "src/loom/examples/"
@@ -13,8 +11,24 @@ EXAMPLES_DIR = "src/loom/examples/"
 # Define the output directory for the results
 OUTPUT_DIR = "tests/output/"
 
-# Define the configuration for Loom (if needed for the tests)
-CONFIG_LOOM = {
+# Define the configuration for each stage
+CONFIG = {
+    "topo": {
+        "max-aggr-dist": 50,
+        "write-stats": False,
+        "no-infer-restrs": False,
+        "infer-restr-max-dist": 50,
+        "max-comp-dist": 10000,
+        "sample-dist": 5,
+        "max-length-dev": 500,
+        "turn-restr-full-turn-angle": 0,
+        "turn-restr-full-turn-pen": 0,
+        "random-colors": False,
+        "write-components": False,
+        "write-components-path": "",
+        "smooth": 0,
+        "aggr-stats": False
+    },
     "loom": {
         "no-untangle": False,
         "output-stats": False,
@@ -29,7 +43,7 @@ CONFIG_LOOM = {
         "ilp-time-limit": 1.7976931348623157e+308,
         "ilp-solver": "gurobi",
         "optim-method": "comb-no-ilp",
-        "optim-runs": 1,
+        "optim-runs": 2,
         "dbg-output-path": ".",
         "output-optgraph": False,
         "write-stats": False,
@@ -64,22 +78,6 @@ CONFIG_LOOM = {
         "retryOnError": False,
         "gridSize": "100%"
     },
-    "topo": {
-        "max-aggr-dist": 50,
-        "write-stats": False,
-        "no-infer-restrs": False,
-        "infer-restr-max-dist": 50,
-        "max-comp-dist": 10000,
-        "sample-dist": 5,
-        "max-length-dev": 500,
-        "turn-restr-full-turn-angle": 0,
-        "turn-restr-full-turn-pen": 0,
-        "random-colors": False,
-        "write-components": False,
-        "write-components-path": "",
-        "smooth": 0,
-        "aggr-stats": False
-    },
     "transitmap": {
         "render-engine": "svg",
         "line-width": 20,
@@ -94,9 +92,9 @@ CONFIG_LOOM = {
         "mvt-path": ".",
         "random-colors": False,
         "tight-stations": False,
-        "no-render-stations": False,
+        "no-render-stations": True,
         "no-render-node-connections": False,
-        "render-node-fronts": False,
+        "render-node-fronts": True,
         "print-stats": False
     }
 }
@@ -104,42 +102,89 @@ CONFIG_LOOM = {
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+# repo root
+root = Path(__file__).resolve().parent.parent
+
+
 class TestIO(unittest.TestCase):
 
-    def test_io(self):
-        # Only process the wien.json file
+    def _load_loom_module(self):
+        """Load the loom pybind11 module by path."""
+        lib_path = None
+        try:
+            lib_path = next(root.rglob("libloom-python-plugin.so"))
+        except StopIteration:
+            self.fail("libloom-python-plugin.so not found")
+        
+        spec = importlib.util.spec_from_file_location("loom", str(lib_path))
+        if spec is None:
+            self.fail(f"Could not create spec from {lib_path}")
+        
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_io_pipeline(self):
+        """Test the full loom pipeline: topo -> loom -> octi -> transitmap."""
         filename = "wien.json"
         input_path = os.path.join(EXAMPLES_DIR, filename)
         base_name = os.path.splitext(filename)[0]
         
-        # Add the directory containing the shared libraries to PYTHONPATH
-        LIB_DIR = os.path.join(os.path.dirname(__file__), "../lib")
-        sys.path.insert(0, LIB_DIR)
+        # Load the loom module
+        loom_module = self._load_loom_module()
 
-        # Read the content of the JSON file
+        # Read the input JSON
         with open(input_path, "r") as f:
-            json_content = f.read()
+            graph_json = f.read()
 
-        # Test each shared library
-        for module_name in MODULES:
-            try:
-                # Import the shared library
-                module = importlib.import_module(f"{module_name}_python")
+        # Stage 1: topo
+        try:
+            topo_config = json.dumps(CONFIG["topo"])
+            topo_result = loom_module.run_topo([graph_json, topo_config])
+            
+            topo_output = os.path.join(OUTPUT_DIR, f"{base_name}-topo-out.json")
+            with open(topo_output, "w") as out:
+                out.write(topo_result)
+            print(f"✓ topo output saved to {topo_output}")
+        except Exception as e:
+            self.fail(f"topo stage failed: {e}")
 
-                # Pass the JSON content as a single string in a list to the main function
-                result = module.run([json_content, json.dumps(CONFIG_LOOM[module_name])])  # Wrap json_content in a list
+        # Stage 2: loom
+        try:
+            loom_config = json.dumps(CONFIG["loom"])
+            loom_result = loom_module.run_loom([topo_result, loom_config])
+            
+            loom_output = os.path.join(OUTPUT_DIR, f"{base_name}-loom-out.json")
+            with open(loom_output, "w") as out:
+                out.write(loom_result)
+            print(f"✓ loom output saved to {loom_output}")
+        except Exception as e:
+            self.fail(f"loom stage failed: {e}")
 
-                # Save the output to a corresponding *-out.json file
-                output_filename = f"{base_name}-{module_name}-out.json"
-                output_path = os.path.join(OUTPUT_DIR, output_filename)
-                with open(output_path, "w") as out_file:
-                    out_file.write(result)
+        # Stage 3: octi
+        try:
+            octi_config = json.dumps(CONFIG["octi"])
+            octi_result = loom_module.run_octi([loom_result, octi_config])
+            
+            octi_output = os.path.join(OUTPUT_DIR, f"{base_name}-octi-out.json")
+            with open(octi_output, "w") as out:
+                out.write(octi_result)
+            print(f"✓ octi output saved to {octi_output}")
+        except Exception as e:
+            self.fail(f"octi stage failed: {e}")
 
-                print(f"Processed {filename} with {module_name}, output saved to {output_filename}")
+        # Stage 4: transitmap
+        try:
+            transitmap_config = json.dumps(CONFIG["transitmap"])
+            transitmap_result = loom_module.run_transitmap([octi_result, transitmap_config])
+            
+            transitmap_output = os.path.join(OUTPUT_DIR, f"{base_name}-transitmap-out.svg")
+            with open(transitmap_output, "w") as out:
+                out.write(transitmap_result)
+            print(f"✓ transitmap output saved to {transitmap_output}")
+        except Exception as e:
+            self.fail(f"transitmap stage failed: {e}")
 
-            except Exception as e:
-                # Fail the test if an exception occurs
-                self.fail(f"Error processing {filename} with {module_name}: {e}")
 
 if __name__ == "__main__":
     unittest.main()
