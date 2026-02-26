@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 
 # Define the shared libraries to test
-MODULES = ["loom_python", "octi_python", "topo_python"]
+MODULES = ["loom"]
 
 # Define the directory containing the example JSON files
 EXAMPLES_DIR = "src/loom/examples/"
@@ -25,14 +25,14 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 root = Path(__file__).resolve().parent.parent
 
 # Ensure lib/ from repo root is on sys.path and preload its .so files with RTLD_GLOBAL so symbols resolve
-lib_dir = root / "lib"
+lib_dir = root / "src/loom/lib"
 if lib_dir.exists():
     sys.path.insert(0, str(lib_dir))
     for so in sorted(lib_dir.glob("*.so")):
         try:
             ctypes.CDLL(str(so), mode=os.RTLD_NOW | os.RTLD_GLOBAL)
-        except OSError:
-            pass
+        except Exception as e:
+            print(f"Warning: Failed to load {so}: {e}")
 
 for pattern in [f"{m}*.so" for m in MODULES]:
     for p in root.rglob(pattern):
