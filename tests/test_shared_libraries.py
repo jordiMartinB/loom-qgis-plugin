@@ -2,7 +2,7 @@ import os
 import sys
 import importlib
 import importlib.util
-import unittest
+import pytest
 import ctypes
 import subprocess
 from pathlib import Path
@@ -39,73 +39,46 @@ if lib_dir.exists():
             print(f"Warning: Failed to load {so} with RTLD_GLOBAL: {e}")
 
 
-class TestSharedLibraries(unittest.TestCase):
-
-    def _find_lib(self):
-        """Find the libloom-python-plugin.so path, or return None."""
-        try:
-            return next(root.rglob(f"{LIBRARY_NAME}*.so"))
-        except StopIteration:
-            return None
-
-    def test_shared_library_symbols(self):
-        """Test that the plugin .so loads without undefined symbol errors."""
-        lib_path = self._find_lib()
-        if lib_path is None:
-            self.fail(f"{LIBRARY_NAME}.so not found under {root}")
-        try:
-            ctypes.CDLL(str(lib_path), mode=os.RTLD_NOW | os.RTLD_GLOBAL)
-        except OSError as e:
-            self.fail(f"Failed to load {lib_path} due to missing symbols: {e}")
-
-    def test_shared_library_dependencies(self):
-        """Test that all runtime dependencies of the plugin .so are satisfied (ldd)."""
-        lib_path = self._find_lib()
-        if lib_path is None:
-            self.fail(f"{LIBRARY_NAME}.so not found under {root}")
-        result = subprocess.run(
-            ["ldd", str(lib_path)],
-            capture_output=True,
-            text=True,
-        )
-        missing = [
-            line.strip()
-            for line in result.stdout.splitlines()
-            if "not found" in line
-        ]
-        self.assertEqual(
-            missing,
-            [],
-            f"{LIBRARY_NAME} has missing dependencies:\n" + "\n".join(missing),
-        )
-
-    def test_plugin_imports_and_exposes_run_functions(self):
-        """Test that the plugin can be imported and exposes all run_* functions."""
-        lib_path = self._find_lib()
-        if lib_path is None:
-            self.fail(f"{LIBRARY_NAME}.so not found under {root}")
-
-        # load the .so directly by path since its filename differs from the pybind11 module name
-        spec = importlib.util.spec_from_file_location(PLUGIN_MODULE, str(lib_path))
-        if spec is None:
-            self.fail(f"Could not create spec from {lib_path}")
-        try:
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-        except Exception as e:
-            self.fail(f"Failed to load {lib_path} as module '{PLUGIN_MODULE}': {e}")
-
-        for fn_name in EXPECTED_FUNCTIONS:
-            with self.subTest(function=fn_name):
-                self.assertTrue(
-                    hasattr(mod, fn_name),
-                    f"{PLUGIN_MODULE} does not expose '{fn_name}'",
-                )
-                self.assertTrue(
-                    callable(getattr(mod, fn_name)),
-                    f"{PLUGIN_MODULE}.{fn_name} is not callable",
-                )
+@pytest.fixture(scope="module")
+def lib_path():
+    """Find the libloom-python-plugin.so path."""
+    try:
+        return next(root.rglob(f"{LIBRARY_NAME}*.so"))
+    except StopIteration:
+        pytest.fail(f"{LIBRARY_NAME}.so not found under {root}")
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_shared_library_symbols(lib_path):
+    """Test that the plugin .so loads without undefined symbol errors."""
+    try:
+        ctypes.CDLL(str(lib_path), mode=os.RTLD_NOW | os.RTLD_GLOBAL)
+    except OSError as e:
+        pytest.fail(f"Failed to load {lib_path} due to missing symbols: {e}")
+
+
+def test_shared_library_dependencies(lib_path):
+    """Test that all runtime dependencies of the plugin .so are satisfied (ldd)."""
+    result = subprocess.run(
+        ["ldd", str(lib_path)],
+        capture_output=True,
+        text=True,
+    )
+    missing = [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if "not found" in line
+    ]
+    assert missing == [], f"{LIBRARY_NAME} has missing dependencies:\n" + "\n".join(missing)
+
+
+@pytest.mark.parametrize("fn_name", EXPECTED_FUNCTIONS)
+def test_plugin_exposes_run_functions(lib_path, fn_name):
+    """Test that the plugin can be imported and exposes all run_* functions."""
+    spec = importlib.util.spec_from_file_location(PLUGIN_MODULE, str(lib_path))
+    if spec is None:
+        pytest.fail(f"Could not create spec from {lib_path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert hasattr(mod, fn_name), f"{PLUGIN_MODULE} does not expose '{fn_name}'"
+    assert callable(getattr(mod, fn_name)), f"{PLUGIN_MODULE}.{fn_name} is not callable"

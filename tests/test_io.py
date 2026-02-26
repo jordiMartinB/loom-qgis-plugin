@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import importlib.util
-import unittest
+import pytest
 from pathlib import Path
 
 # Define the directory containing the example JSON files
@@ -57,7 +57,7 @@ CONFIG = {
         "ilpCacheThreshold": sys.float_info.max,
         "ilpCacheDir": ".",
         "obstaclePath": "",
-        "deg2Heur": False,
+        "deg2Heur": True,
         "enfGeoPen": 0.0,
         "maxGrDist": 3.0,
         "restrLocSearch": False,
@@ -106,85 +106,61 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 root = Path(__file__).resolve().parent.parent
 
 
-class TestIO(unittest.TestCase):
+@pytest.fixture(scope="module")
+def loom_module():
+    """Load the loom pybind11 module by path."""
+    try:
+        lib_path = next(root.rglob("libloom-python-plugin.so"))
+    except StopIteration:
+        pytest.fail("libloom-python-plugin.so not found")
 
-    def _load_loom_module(self):
-        """Load the loom pybind11 module by path."""
-        lib_path = None
-        try:
-            lib_path = next(root.rglob("libloom-python-plugin.so"))
-        except StopIteration:
-            self.fail("libloom-python-plugin.so not found")
-        
-        spec = importlib.util.spec_from_file_location("loom", str(lib_path))
-        if spec is None:
-            self.fail(f"Could not create spec from {lib_path}")
-        
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod
+    spec = importlib.util.spec_from_file_location("loom", str(lib_path))
+    if spec is None:
+        pytest.fail(f"Could not create spec from {lib_path}")
 
-    def test_io_pipeline(self):
-        """Test the full loom pipeline: topo -> loom -> octi -> transitmap."""
-        filename = "wien.json"
-        input_path = os.path.join(EXAMPLES_DIR, filename)
-        base_name = os.path.splitext(filename)[0]
-        
-        # Load the loom module
-        loom_module = self._load_loom_module()
-
-        # Read the input JSON
-        with open(input_path, "r") as f:
-            graph_json = f.read()
-
-        # Stage 1: topo
-        try:
-            topo_config = json.dumps(CONFIG["topo"])
-            topo_result = loom_module.run_topo([graph_json, topo_config])
-            
-            topo_output = os.path.join(OUTPUT_DIR, f"{base_name}-topo-out.json")
-            with open(topo_output, "w") as out:
-                out.write(topo_result)
-            print(f"✓ topo output saved to {topo_output}")
-        except Exception as e:
-            self.fail(f"topo stage failed: {e}")
-
-        # Stage 2: loom
-        try:
-            loom_config = json.dumps(CONFIG["loom"])
-            loom_result = loom_module.run_loom([topo_result, loom_config])
-            
-            loom_output = os.path.join(OUTPUT_DIR, f"{base_name}-loom-out.json")
-            with open(loom_output, "w") as out:
-                out.write(loom_result)
-            print(f"✓ loom output saved to {loom_output}")
-        except Exception as e:
-            self.fail(f"loom stage failed: {e}")
-
-        # Stage 3: octi
-        try:
-            octi_config = json.dumps(CONFIG["octi"])
-            octi_result = loom_module.run_octi([loom_result, octi_config])
-            
-            octi_output = os.path.join(OUTPUT_DIR, f"{base_name}-octi-out.json")
-            with open(octi_output, "w") as out:
-                out.write(octi_result)
-            print(f"✓ octi output saved to {octi_output}")
-        except Exception as e:
-            self.fail(f"octi stage failed: {e}")
-
-        # Stage 4: transitmap
-        try:
-            transitmap_config = json.dumps(CONFIG["transitmap"])
-            transitmap_result = loom_module.run_transitmap([octi_result, transitmap_config])
-            
-            transitmap_output = os.path.join(OUTPUT_DIR, f"{base_name}-transitmap-out.svg")
-            with open(transitmap_output, "w") as out:
-                out.write(transitmap_result)
-            print(f"✓ transitmap output saved to {transitmap_output}")
-        except Exception as e:
-            self.fail(f"transitmap stage failed: {e}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_io_pipeline(loom_module):
+    """Test the full loom pipeline: topo -> loom -> octi -> transitmap."""
+    filename = "wien.json"
+    input_path = os.path.join(EXAMPLES_DIR, filename)
+    base_name = os.path.splitext(filename)[0]
+
+    # Read the input JSON
+    with open(input_path, "r") as f:
+        graph_json = f.read()
+
+    # Stage 1: topo
+    topo_config = json.dumps(CONFIG["topo"])
+    topo_result = loom_module.run_topo([graph_json, topo_config])
+    topo_output = os.path.join(OUTPUT_DIR, f"{base_name}-topo-out.json")
+    with open(topo_output, "w") as out:
+        out.write(topo_result)
+    print(f"✓ topo output saved to {topo_output}")
+
+    # Stage 2: loom
+    loom_config = json.dumps(CONFIG["loom"])
+    loom_result = loom_module.run_loom([topo_result, loom_config])
+    loom_output = os.path.join(OUTPUT_DIR, f"{base_name}-loom-out.json")
+    with open(loom_output, "w") as out:
+        out.write(loom_result)
+    print(f"✓ loom output saved to {loom_output}")
+
+    # Stage 3: octi
+    octi_config = json.dumps(CONFIG["octi"])
+    octi_result = loom_module.run_octi([loom_result, octi_config])
+    octi_output = os.path.join(OUTPUT_DIR, f"{base_name}-octi-out.json")
+    with open(octi_output, "w") as out:
+        out.write(octi_result)
+    print(f"✓ octi output saved to {octi_output}")
+
+    # Stage 4: transitmap
+    transitmap_config = json.dumps(CONFIG["transitmap"])
+    transitmap_result = loom_module.run_transitmap([octi_result, transitmap_config])
+    transitmap_output = os.path.join(OUTPUT_DIR, f"{base_name}-transitmap-out.svg")
+    with open(transitmap_output, "w") as out:
+        out.write(transitmap_result)
+    print(f"✓ transitmap output saved to {transitmap_output}")
