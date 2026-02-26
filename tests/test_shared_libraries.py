@@ -12,7 +12,7 @@ LIBRARY_NAME = "libloom-python-plugin"
 PLUGIN_MODULE = "loom"  # pybind11 module name as imported in Python
 
 # Functions expected to be exposed by the plugin
-EXPECTED_FUNCTIONS = ["run_loom", "run_octi", "run_topo"]
+EXPECTED_FUNCTIONS = ["run_loom", "run_octi", "run_topo", "run_transitmap"]
 
 # Define the directory containing the example JSON files
 EXAMPLES_DIR = "src/loom/examples/"
