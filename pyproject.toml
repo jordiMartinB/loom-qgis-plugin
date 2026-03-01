@@ -12,10 +12,10 @@ build-frontend = "build"
 # ---------- Linux ----------
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
-manylinux-x86_64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
 
 before-all = [
-    "yum install -y libzip-devel cmake",
+    "dnf install -y libzip-devel cmake",
 ]
 
 before-build = [
