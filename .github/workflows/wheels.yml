@@ -1,0 +1,40 @@
+name: Build wheels
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:          [ubuntu-latest, windows-2022]
+        build_type:  [Release, Debug]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install libzip (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install libzip:x64-windows
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.19.1
+
+      - name: Build wheels
+        env:
+          CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
+          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
+        run: cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.build_type }}
+          path: wheelhouse/*.whl
