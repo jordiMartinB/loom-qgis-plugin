@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: loom-python-plugin
+Version: 0.1.0
+Summary: A QGIS plugin for managing loom data.
+Home-page: https://github.com/yourusername/loom-qgis-plugin
+Author: Your Name
+Author-email: your.email@example.com
+License: MIT
+Keywords: QGIS,plugin,loom
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: qgis
+Requires-Dist: PyQt5
+Dynamic: license-file

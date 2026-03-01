@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+setup.py
+loom_python_plugin.egg-info/PKG-INFO
+loom_python_plugin.egg-info/SOURCES.txt
+loom_python_plugin.egg-info/dependency_links.txt
+loom_python_plugin.egg-info/not-zip-safe
+loom_python_plugin.egg-info/requires.txt
+loom_python_plugin.egg-info/top_level.txt
+tests/__init__.py
+tests/test_io.py
+tests/test_plugin.py
+tests/test_shared_libraries.py
