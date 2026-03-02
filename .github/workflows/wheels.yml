@@ -21,16 +21,30 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           vcpkg install libzip:x64-windows
-          echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
         shell: pwsh
 
-      - name: Ensure Python 3.10 (x64) available on Windows
+      - name: Set up Python 3.11 (Linux / macOS)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          check-latest: true
+
+      - name: Set up Python 3.11 (Windows x64)
         if: runner.os == 'Windows'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           architecture: 'x64'
           check-latest: true
+
+      - name: Export Python root (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # pass the real Python install root into the cibuildwheel build env
+          echo "Python3_ROOT_DIR=$env:pythonLocation" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.22.0
@@ -39,7 +53,7 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT Python3_ROOT_DIR"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
