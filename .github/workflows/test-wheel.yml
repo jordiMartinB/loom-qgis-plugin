@@ -1,26 +1,20 @@
-name: Test Wheel
-
-on:
-  workflow_dispatch:
+name: Test wheel
+on: [push, pull_request]
 
 jobs:
-  test:
+  test-wheel:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.8'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 
-      - name: Run tests
-        run: |
-          pytest tests/test_hello_wheel.py
+      - name: Run pytest
+        run: pytest -q --maxfail=1
