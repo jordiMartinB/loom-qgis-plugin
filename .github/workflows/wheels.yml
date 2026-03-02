@@ -20,12 +20,12 @@ jobs:
       - name: Install libzip (Windows)
         if: runner.os == 'Windows'
         run: |
-          vcpkg install libzip:x64-windows
+          vcpkg install libzip:x64-windows libzip:x86-windows
           echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.19.1
+        run: pip install cibuildwheel==2.22.0
 
       - name: Build wheels
         env:
