@@ -20,7 +20,7 @@ jobs:
       - name: Install libzip (Windows)
         if: runner.os == 'Windows'
         run: |
-          vcpkg install libzip:x64-windows libzip:x86-windows
+          vcpkg install libzip:x64-windows
           echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
         shell: pwsh
 
@@ -32,14 +32,6 @@ jobs:
           architecture: 'x64'
           check-latest: true
 
-      - name: Ensure Python 3.10 (x86) available on Windows
-        if: runner.os == 'Windows'
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          architecture: 'x86'
-          check-latest: true
-
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.22.0
 
@@ -48,6 +40,7 @@ jobs:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
           CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT"
+          CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheels
