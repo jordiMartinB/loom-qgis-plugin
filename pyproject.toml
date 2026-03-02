@@ -27,7 +27,7 @@ CMAKE_BUILD_TYPE = "Release"
 
 # ---------- Windows ----------
 [tool.cibuildwheel.windows]
-archs = ["AMD64", "X86"]
+archs = ["AMD64", "x86"]
 
 # No before-all here — libzip is installed by the workflow step in wheels.yml
 
