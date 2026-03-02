@@ -9,3 +9,4 @@ tests/output/
 src/loom/*
 !src/loom/.git
 wheelhouse/
+dist/

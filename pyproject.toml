@@ -3,8 +3,8 @@ requires = ["setuptools>=61", "pybind11[global]>=2.10", "cmake>=3.18,<4"]
 build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
-# Only CPython 3.10-3.12, 64-bit
-build = ["cp310-*", "cp311-*", "cp312-*"]
+# Only CPython 3.10-3.14, 64-bit
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
 skip  = ["*-manylinux_i686", "*-win32", "*-musllinux*"]
 
 build-frontend = "build"
@@ -27,7 +27,7 @@ CMAKE_BUILD_TYPE = "Release"
 
 # ---------- Windows ----------
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = ["AMD64", "X86"]
 
 # No before-all here — libzip is installed by the workflow step in wheels.yml
 
