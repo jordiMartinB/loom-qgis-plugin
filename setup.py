@@ -19,24 +19,33 @@ class CMakeBuild(build_ext):
         build_type = os.environ.get("CMAKE_BUILD_TYPE", "Release")
         ext_dir = Path(self.get_ext_fullpath(ext.name)).parent.resolve()
 
-        # Resolve the real Python root (not the venv).
-        # In a cibuildwheel venv, sys.executable is <venv>/Scripts/python.exe
-        # and the real install is the parent of the venv root.
         python_exe = Path(sys.executable).resolve()
         python_root = Path(sys.base_prefix).resolve()
 
-        # On Windows, python*.lib lives in <real_root>/libs/, not in the venv.
-        # Walk up from the venv root to find it.
         ver = f"{sys.version_info.major}{sys.version_info.minor}"
-        python_lib = python_root / "libs" / f"python{ver}.lib"
-        if not python_lib.exists():
-            # venv base_prefix doesn't have libs/ — try the real install root
-            # cibuildwheel places the real Python one level above the venv
-            real_root = python_root.parent
-            candidate = real_root / "libs" / f"python{ver}.lib"
+
+        # Search multiple candidate locations for python*.lib
+        lib_candidates = [
+            python_root / "libs" / f"python{ver}.lib",
+            python_root / "Libs" / f"python{ver}.lib",
+            python_root.parent / "libs" / f"python{ver}.lib",
+            python_root.parent / "Libs" / f"python{ver}.lib",
+        ]
+
+        # Also search via glob in case location varies
+        python_lib = None
+        for candidate in lib_candidates:
             if candidate.exists():
-                python_root = real_root
                 python_lib = candidate
+                break
+
+        if python_lib is None:
+            # Try a glob search under base_prefix and its parent
+            for search_root in [python_root, python_root.parent]:
+                found = list(search_root.rglob(f"python{ver}.lib"))
+                if found:
+                    python_lib = found[0]
+                    break
 
         cmake_args = [
             f"-Dpybind11_DIR={pybind11.get_cmake_dir()}",
@@ -49,10 +58,11 @@ class CMakeBuild(build_ext):
             "-DPython3_FIND_REGISTRY=NEVER",
         ]
 
-        # Explicitly pass the lib path if we found it, so the MSVC linker
-        # doesn't fall back to the x64 hostedtoolcache python*.lib
-        if python_lib.exists():
+        if python_lib and python_lib.exists():
             cmake_args.append(f"-DPython3_LIBRARY={python_lib}")
+            print(f"Using Python lib: {python_lib}")
+        else:
+            print(f"WARNING: python{ver}.lib not found, linker may fail")
 
         # Honour VCPKG on Windows
         vcpkg_root = os.environ.get("VCPKG_ROOT")
