@@ -26,7 +26,7 @@ class CMakeBuild(build_ext):
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             # Tell cmake to use exactly the Python running this script
             f"-DPython3_EXECUTABLE={sys.executable}",
-            f"-DPython3_ROOT_DIR={Path(sys.executable).parent.parent}",
+            f"-DPython3_ROOT_DIR={Path(sys.base_prefix)}",
             "-DPython3_FIND_STRATEGY=LOCATION",
             # Only need headers for extension modules, not libpython
             "-DPYTHON_FIND_IMPLEMENTATIONS=CPython",
