@@ -1,4 +1,5 @@
-name=loom-qgis-plugin
+[general]
+name=loom_qgis_plugin
 description=A QGIS plugin for managing and visualizing loom data.
 version=0.1.0
 author=Your Name

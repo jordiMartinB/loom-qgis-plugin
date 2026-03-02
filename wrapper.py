@@ -16,12 +16,18 @@ def _backend_name() -> str:
 
 
 def _find_backend_so() -> Path:
-    """Locate libloom-python-plugin.so in the lib/ directory."""
+    """Locate the loom extension module (.so on Linux/macOS, .pyd on Windows)."""
     lib_dir = Path(__file__).parent / "lib"
-    candidates = list(lib_dir.glob("libloom-python-plugin.so"))
-    if not candidates:
-        raise FileNotFoundError(f"libloom-python-plugin.so not found in {lib_dir}")
-    return candidates[0]
+    patterns = ["libloom-python-plugin.pyd", "loom*.pyd"] if sys.platform == "win32" \
+        else ["libloom-python-plugin.so", "loom*.so"]
+    for pattern in patterns:
+        candidates = list(lib_dir.glob(pattern))
+        if candidates:
+            return candidates[0]
+    ext = ".pyd" if sys.platform == "win32" else ".so"
+    raise FileNotFoundError(
+        f"loom extension module (*{ext}) not found in {lib_dir}"
+    )
 
 
 def _load_backend_module(backend: str) -> Any:
