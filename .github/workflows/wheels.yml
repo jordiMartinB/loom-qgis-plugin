@@ -31,6 +31,7 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
+          CIBW_PRERELEASE_PYTHONS: "1"
         run: cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheels
