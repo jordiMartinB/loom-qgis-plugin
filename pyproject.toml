@@ -3,9 +3,9 @@ requires = ["setuptools>=61", "pybind11[global]>=2.10", "cmake>=3.18,<4"]
 build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
-# Only CPython 3.12, 64-bit
+# CPython 3.12–3.14, 64-bit
 enable = ["cpython-prerelease"]
-build = ["cp312-*"]
+build = ["cp312-*", "cp313-*", "cp314-*"]
 skip  = ["*-manylinux_i686", "*-musllinux*"]
 
 build-frontend = "build"
@@ -16,7 +16,7 @@ archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
 
 before-all = [
-    "dnf install -y libzip-devel cmake",
+    "dnf install -y ccache libzip-devel cmake",
 ]
 
 before-build = [

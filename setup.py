@@ -80,6 +80,12 @@ class CMakeBuild(build_ext):
                 f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_root}/scripts/buildsystems/vcpkg.cmake"
             )
 
+        # Honour compiler launchers (ccache / sccache) if set in the environment
+        for var in ("CMAKE_C_COMPILER_LAUNCHER", "CMAKE_CXX_COMPILER_LAUNCHER"):
+            val = os.environ.get(var)
+            if val:
+                cmake_args.append(f"-D{var}={val}")
+
         build_dir = Path(self.build_temp) / ext.name
         build_dir.mkdir(parents=True, exist_ok=True)
 
