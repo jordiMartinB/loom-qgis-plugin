@@ -53,8 +53,8 @@ with zipfile.ZipFile("$WHEEL") as z:
     z.extractall("$UNPACK_TMP")
 EOF
 
-# Copy extension module  (loom.cpython-3xx-*.so)
-SO=$(find "$UNPACK_TMP" -maxdepth 2 -name "loom.cpython-*.so" | head -1)
+# Copy extension module  (loom.cpython-3xx-*.so or loom.cpython-3xx-*.pyd)
+SO=$(find "$UNPACK_TMP" -maxdepth 2 \( -name "loom.cpython-*.so" -o -name "loom.cpython-*.pyd" \) | head -1)
 if [[ -z "$SO" ]]; then
     echo "ERROR: could not find loom.cpython-*.so in the wheel" >&2
     exit 1
