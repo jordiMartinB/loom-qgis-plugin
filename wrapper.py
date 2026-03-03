@@ -16,17 +16,35 @@ def _backend_name() -> str:
 
 
 def _find_backend_so() -> Path:
-    """Locate the loom extension module (.so on Linux/macOS, .pyd on Windows)."""
+    """Locate the loom extension module matching the running Python version.
+
+    Prefers an exact version match (e.g. loom.cpython-314-x86_64-linux-gnu.so)
+    and falls back to any loom*.so / loom*.pyd found in lib/.
+    """
     lib_dir = Path(__file__).parent / "lib"
-    patterns = ["libloom-python-plugin.pyd", "loom*.pyd"] if sys.platform == "win32" \
-        else ["libloom-python-plugin.so", "loom*.so"]
-    for pattern in patterns:
-        candidates = list(lib_dir.glob(pattern))
-        if candidates:
-            return candidates[0]
     ext = ".pyd" if sys.platform == "win32" else ".so"
+
+    # Build version-specific prefix:
+    #   Linux/macOS: cpython-314   Windows: cp314
+    vi = sys.version_info
+    if sys.platform == "win32":
+        version_tag = f"cp{vi.major}{vi.minor}"
+    else:
+        version_tag = f"cpython-{vi.major}{vi.minor}"
+
+    # 1. Exact version match
+    exact = list(lib_dir.glob(f"loom.{version_tag}*{ext}"))
+    if exact:
+        return exact[0]
+
+    # 2. Any loom extension (different Python version bundled)
+    fallback = list(lib_dir.glob(f"loom*{ext}"))
+    if fallback:
+        return fallback[0]
+
     raise FileNotFoundError(
-        f"loom extension module (*{ext}) not found in {lib_dir}"
+        f"loom extension module (*{ext}) not found in {lib_dir}. "
+        f"Looked for Python {vi.major}.{vi.minor} ({version_tag})."
     )
 
 

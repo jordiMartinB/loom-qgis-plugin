@@ -121,13 +121,12 @@ jobs:
           path: wheelhouse
 
       - name: Build plugin zips
-        run: |
-          for tag in cp312 cp313 cp314; do
-            bash scripts/build_plugin_zip.sh "$tag" "${{ github.ref_name }}"
-          done
+        run: bash scripts/build_plugin_zip.sh "${{ github.ref_name }}" cp312 cp313 cp314
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/loom_qgis_plugin_*_${{ github.ref_name }}.zip
+          files: |
+            dist/loom_qgis_plugin_linux_${{ github.ref_name }}.zip
+            dist/loom_qgis_plugin_windows_${{ github.ref_name }}.zip
           generate_release_notes: true   # auto-fills changelog from merged PRs
