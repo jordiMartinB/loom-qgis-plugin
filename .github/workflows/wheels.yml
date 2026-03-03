@@ -104,6 +104,15 @@ jobs:
           restore-keys: |
             sccache-windows-${{ matrix.build_type }}-
 
+      - name: Cache CMake build dir (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: cmake-build-windows-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          restore-keys: |
+            cmake-build-windows-${{ matrix.build_type }}-
+
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
@@ -117,6 +126,15 @@ jobs:
           CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER SCCACHE_DIR SCCACHE_IDLE_TIMEOUT"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
+
+      - name: ccache stats (Linux)
+        if: runner.os != 'Windows'
+        run: ccache --show-stats
+
+      - name: sccache stats (Windows)
+        if: runner.os == 'Windows'
+        run: sccache --show-stats
+        shell: pwsh
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
