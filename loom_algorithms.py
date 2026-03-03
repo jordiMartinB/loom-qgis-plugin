@@ -66,11 +66,20 @@ class BuildGraphAlgorithm(QgsProcessingAlgorithm):
         )
 
     def initAlgorithm(self, config=None):
-        # --- Stops ----------------------------------------------------------
-        self.addParameter(QgsProcessingParameterVectorLayer(
-            self.STOPS, "Stops layer",
-            types=[QgsProcessingParameterVectorLayer.typeVectorPoint],
-        ))
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.STOPS,
+                "Stops layer",
+                types=[QgsWkbTypes.PointGeometry],
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.EDGES,
+                "Edges layer",
+                types=[QgsWkbTypes.LineGeometry],
+            )
+        )
         self.addParameter(QgsProcessingParameterField(
             self.STOP_ID, "Stop ID field",
             parentLayerParameterName=self.STOPS,
@@ -82,11 +91,8 @@ class BuildGraphAlgorithm(QgsProcessingAlgorithm):
             optional=True,
         ))
 
-        # --- Edges ----------------------------------------------------------
-        self.addParameter(QgsProcessingParameterVectorLayer(
-            self.EDGES, "Edges layer",
-            types=[QgsProcessingParameterVectorLayer.typeVectorLine],
-        ))
+        # --- REMOVED duplicate EDGES block that was here ---
+
         self.addParameter(QgsProcessingParameterField(
             self.EDGE_FROM, "Edge 'from' stop ID field",
             parentLayerParameterName=self.EDGES,
@@ -199,6 +205,8 @@ class BuildGraphAlgorithm(QgsProcessingAlgorithm):
 # ---------------------------------------------------------------------------
 # Base class and pipeline algorithms
 # ---------------------------------------------------------------------------
+
+class _LoomBaseAlgorithm(QgsProcessingAlgorithm):   # <-- this line was missing
 
     INPUT = "INPUT"
     CONFIG = "CONFIG"

@@ -5,7 +5,6 @@ from loom_algorithms import (
     RunTopoAlgorithm,
     RunLoomAlgorithm,
     RunOctiAlgorithm,
-    RunTransitMapAlgorithm,
 )
 
 
@@ -27,6 +26,5 @@ class LoomProvider(QgsProcessingProvider):
             RunTopoAlgorithm,
             RunLoomAlgorithm,
             RunOctiAlgorithm,
-            RunTransitMapAlgorithm,
         ):
             self.addAlgorithm(algo_cls())
