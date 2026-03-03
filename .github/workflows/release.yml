@@ -1,10 +1,12 @@
 name: Release
 
-# Triggered when you push a version tag:  git tag v1.2.3 && git push --tags
+# Triggered when you push a version tag (either v0.1.0 or 0.1.0), or run manually.
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'       # tags that start with "v", e.g. v0.1.0
+      - '[0-9]*'   # tags that start with a digit, e.g. 0.1.0
+  workflow_dispatch: {}
 
 jobs:
   # ---------------------------------------------------------------------------
