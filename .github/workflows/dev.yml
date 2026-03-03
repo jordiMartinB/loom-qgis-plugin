@@ -1,0 +1,174 @@
+name: Dev Build
+
+# Triggered on every push to the development branch, or manually.
+on:
+  push:
+    branches:
+      - development
+  workflow_dispatch: {}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build the Windows wheels
+  # ---------------------------------------------------------------------------
+  build-wheel-windows:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0   # needed for git describe
+
+      - name: Install libzip (vcpkg)
+        run: |
+          cd C:\vcpkg
+          git fetch
+          git checkout 2024-04-23
+          .\bootstrap-vcpkg.bat
+          .\vcpkg install libzip:x64-windows
+          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Set up Python 3.12 (x64)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+          check-latest: true
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Cache sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SCCACHE_DIR }}
+          key: sccache-windows-${{ hashFiles('src/**', 'setup.py', 'setup.cfg') }}
+          restore-keys: sccache-windows-
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.22.0
+
+      - name: Build wheels
+        env:
+          CMAKE_BUILD_TYPE: Release
+          CIBW_BUILD: "cp312-* cp313-* cp314-*"
+          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT SCCACHE_DIR"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-wheels-windows
+          path: wheelhouse/*.whl
+
+  # ---------------------------------------------------------------------------
+  # 2. Build the Linux wheels
+  # ---------------------------------------------------------------------------
+  build-wheel-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0   # needed for git describe
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          check-latest: true
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-linux-${{ hashFiles('src/**', 'setup.py', 'setup.cfg') }}
+          restore-keys: ccache-linux-
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.22.0
+
+      - name: Build wheels
+        env:
+          CMAKE_BUILD_TYPE: Release
+          CIBW_BUILD: "cp312-* cp313-* cp314-*"
+          CIBW_ENVIRONMENT_LINUX: >-
+            CMAKE_BUILD_TYPE=Release
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/host/root/.ccache
+            CCACHE_MAXSIZE=500M
+          CIBW_ARCHS_LINUX: "x86_64"
+        run: cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-wheels-linux
+          path: wheelhouse/*.whl
+
+  # ---------------------------------------------------------------------------
+  # 3. Package plugin zips and update the rolling "dev" pre-release
+  # ---------------------------------------------------------------------------
+  publish-dev:
+    needs: [build-wheel-windows, build-wheel-linux]
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for git describe
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Compute dev version
+        id: version
+        run: |
+          # e.g. "v0.1.2-5-gabcdef" → "v0.1.2-dev" for simplicity,
+          # or fall back to "dev" if no tag exists yet.
+          BASE=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION="${BASE}-dev"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download Windows wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: dev-wheels-windows
+          path: wheelhouse
+
+      - name: Download Linux wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: dev-wheels-linux
+          path: wheelhouse
+
+      - name: Build plugin zips
+        run: bash scripts/build_plugin_zip.sh "${{ steps.version.outputs.VERSION }}" cp312 cp313 cp314
+
+      - name: Update rolling "dev" pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          name: "Development build (${{ steps.version.outputs.VERSION }})"
+          prerelease: true
+          files: |
+            dist/loom_qgis_plugin_linux_${{ steps.version.outputs.VERSION }}.zip
+            dist/loom_qgis_plugin_windows_${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: false
+          body: |
+            Automated development build from the `development` branch.
+            Based on **${{ steps.version.outputs.VERSION }}**.
+            Built from commit ${{ github.sha }}.
