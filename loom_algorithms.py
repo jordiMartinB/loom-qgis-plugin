@@ -1,16 +1,21 @@
 import json
 from pathlib import Path
 
+from PyQt5.QtCore import QVariant
+
 from qgis.core import (
     QgsProcessingAlgorithm,
-    QgsProcessingParameterString,
     QgsProcessingParameterVectorLayer,
-    QgsProcessingParameterField,
-    QgsProcessingOutputString,
+    QgsProcessingParameterString,
+    QgsProcessingOutputVectorLayer,
     QgsProcessingContext,
     QgsProcessingFeedback,
+    QgsVectorLayer,
+    QgsFeature,
+    QgsGeometry,
+    QgsField,
+    QgsPointXY,
     QgsWkbTypes,
-    QgsJsonExporter,
 )
 
 from wrapper import run_topo, run_loom, run_octi
@@ -28,189 +33,16 @@ except (FileNotFoundError, json.JSONDecodeError):
 
 
 # ---------------------------------------------------------------------------
-# Graph builder: converts two QGIS vector layers -> loom GeoJSON
-# ---------------------------------------------------------------------------
-
-class BuildGraphAlgorithm(QgsProcessingAlgorithm):
-    """
-    Build a loom-compatible GeoJSON FeatureCollection from a stops (point)
-    layer and an edges (line) layer.
-
-    Stop features become GeoJSON Points with properties:
-        id, station_id, station_label
-
-    Edge features become GeoJSON LineStrings with properties:
-        id, from, to, lines  (lines is a list of {id, label, color})
-    """
-
-    STOPS           = "STOPS"
-    STOP_ID         = "STOP_ID"
-    STOP_LABEL      = "STOP_LABEL"
-    EDGES           = "EDGES"
-    EDGE_FROM       = "EDGE_FROM"
-    EDGE_TO         = "EDGE_TO"
-    EDGE_LINE_LABEL = "EDGE_LINE_LABEL"
-    EDGE_LINE_COLOR = "EDGE_LINE_COLOR"
-    OUTPUT          = "OUTPUT"
-
-    def name(self)        -> str: return "build_graph"
-    def displayName(self) -> str: return "Build Loom Graph"
-    def group(self)       -> str: return "Loom"
-    def groupId(self)     -> str: return "loom"
-
-    def shortHelpString(self) -> str:
-        return (
-            "Convert a <b>stops</b> (point) layer and an <b>edges</b> (line) "
-            "layer into a loom-compatible GeoJSON FeatureCollection. "
-            "The output JSON can be fed directly into <i>Run Topo</i>."
-        )
-
-    def initAlgorithm(self, config=None):
-        self.addParameter(
-            QgsProcessingParameterVectorLayer(
-                self.STOPS,
-                "Stops layer",
-                types=[QgsWkbTypes.PointGeometry],
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterVectorLayer(
-                self.EDGES,
-                "Edges layer",
-                types=[QgsWkbTypes.LineGeometry],
-            )
-        )
-        self.addParameter(QgsProcessingParameterField(
-            self.STOP_ID, "Stop ID field",
-            parentLayerParameterName=self.STOPS,
-            optional=False,
-        ))
-        self.addParameter(QgsProcessingParameterField(
-            self.STOP_LABEL, "Stop label field",
-            parentLayerParameterName=self.STOPS,
-            optional=True,
-        ))
-
-        # --- REMOVED duplicate EDGES block that was here ---
-
-        self.addParameter(QgsProcessingParameterField(
-            self.EDGE_FROM, "Edge 'from' stop ID field",
-            parentLayerParameterName=self.EDGES,
-            optional=False,
-        ))
-        self.addParameter(QgsProcessingParameterField(
-            self.EDGE_TO, "Edge 'to' stop ID field",
-            parentLayerParameterName=self.EDGES,
-            optional=False,
-        ))
-        self.addParameter(QgsProcessingParameterField(
-            self.EDGE_LINE_LABEL, "Edge line label field (transit line name)",
-            parentLayerParameterName=self.EDGES,
-            optional=True,
-        ))
-        self.addParameter(QgsProcessingParameterField(
-            self.EDGE_LINE_COLOR, "Edge line color field (hex, e.g. ff0000)",
-            parentLayerParameterName=self.EDGES,
-            optional=True,
-        ))
-
-        self.addOutput(QgsProcessingOutputString(self.OUTPUT, "Loom graph (GeoJSON)"))
-
-    def processAlgorithm(self, parameters, context: QgsProcessingContext,
-                         feedback: QgsProcessingFeedback):
-        stops_layer  = self.parameterAsVectorLayer(parameters, self.STOPS,  context)
-        edges_layer  = self.parameterAsVectorLayer(parameters, self.EDGES,  context)
-        stop_id_fld  = self.parameterAsString(parameters, self.STOP_ID,         context)
-        stop_lbl_fld = self.parameterAsString(parameters, self.STOP_LABEL,       context)
-        from_fld     = self.parameterAsString(parameters, self.EDGE_FROM,        context)
-        to_fld       = self.parameterAsString(parameters, self.EDGE_TO,          context)
-        lbl_fld      = self.parameterAsString(parameters, self.EDGE_LINE_LABEL,  context)
-        color_fld    = self.parameterAsString(parameters, self.EDGE_LINE_COLOR,  context)
-
-        features = []
-
-        # --- Stop (point) features ------------------------------------------
-        feedback.pushInfo(f"Processing {stops_layer.featureCount()} stops …")
-        for feat in stops_layer.getFeatures():
-            geom = feat.geometry()
-            if geom.isNull():
-                continue
-            pt = geom.asPoint()
-            stop_id = str(feat[stop_id_fld])
-            props = {
-                "id": stop_id,
-                "station_id": stop_id,
-                "station_label": str(feat[stop_lbl_fld]) if stop_lbl_fld else stop_id,
-            }
-            features.append({
-                "type": "Feature",
-                "properties": props,
-                "geometry": {"type": "Point", "coordinates": [pt.x(), pt.y()]},
-            })
-
-        # --- Edge (line) features -------------------------------------------
-        feedback.pushInfo(f"Processing {edges_layer.featureCount()} edges …")
-        for i, feat in enumerate(edges_layer.getFeatures()):
-            geom = feat.geometry()
-            if geom.isNull():
-                continue
-
-            edge_id = str(feat.id())
-            from_id = str(feat[from_fld])
-            to_id   = str(feat[to_fld])
-
-            # Build lines list — support comma-separated values in a single field
-            if lbl_fld:
-                labels = [l.strip() for l in str(feat[lbl_fld]).split(",") if l.strip()]
-                colors = []
-                if color_fld:
-                    raw_colors = str(feat[color_fld])
-                    colors = [c.strip().lstrip("#") for c in raw_colors.split(",") if c.strip()]
-                lines = [
-                    {
-                        "id": f"{edge_id}_{j}",
-                        "label": labels[j] if j < len(labels) else "",
-                        "color": colors[j] if j < len(colors) else "888888",
-                    }
-                    for j in range(len(labels))
-                ]
-            else:
-                lines = []
-
-            # Extract coordinates (handles MultiLineString too)
-            coords = []
-            if geom.isMultipart():
-                for part in geom.asMultiPolyline():
-                    for v in part:
-                        coords.append([v.x(), v.y()])
-            else:
-                for v in geom.asPolyline():
-                    coords.append([v.x(), v.y()])
-
-            features.append({
-                "type": "Feature",
-                "properties": {"id": edge_id, "from": from_id, "to": to_id, "lines": lines},
-                "geometry": {"type": "LineString", "coordinates": coords},
-            })
-
-        graph = {"type": "FeatureCollection", "features": features}
-        result = json.dumps(graph)
-        feedback.pushInfo(f"Built graph with {len(features)} features.")
-        return {self.OUTPUT: result}
-
-    def createInstance(self):
-        return BuildGraphAlgorithm()
-
-
-# ---------------------------------------------------------------------------
 # Base class and pipeline algorithms
 # ---------------------------------------------------------------------------
 
-class _LoomBaseAlgorithm(QgsProcessingAlgorithm):   # <-- this line was missing
+class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
 
-    INPUT = "INPUT"
-    CONFIG = "CONFIG"
-    OUTPUT = "OUTPUT"
+    INPUT_NODES  = "INPUT_NODES"
+    INPUT_EDGES  = "INPUT_EDGES"
+    CONFIG       = "CONFIG"
+    OUTPUT_NODES = "OUTPUT_NODES"
+    OUTPUT_EDGES = "OUTPUT_EDGES"
 
     # Subclasses must set these
     _name: str = ""
@@ -238,10 +70,17 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):   # <-- this line was missing
         default_cfg_str = json.dumps(default_cfg, indent=2) if default_cfg else "{}"
 
         self.addParameter(
-            QgsProcessingParameterString(
-                self.INPUT,
-                "Input graph (JSON)",
-                multiLine=True,
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_NODES,
+                "Nodes / stops layer (points)",
+                types=[QgsWkbTypes.PointGeometry],
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_EDGES,
+                "Edges layer (lines)",
+                types=[QgsWkbTypes.LineGeometry],
             )
         )
         self.addParameter(
@@ -253,19 +92,139 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):   # <-- this line was missing
                 defaultValue=default_cfg_str,
             )
         )
-        self.addOutput(
-            QgsProcessingOutputString(self.OUTPUT, "Output (JSON)")
-        )
+        self.addOutput(QgsProcessingOutputVectorLayer(self.OUTPUT_NODES, "Nodes / stops layer"))
+        self.addOutput(QgsProcessingOutputVectorLayer(self.OUTPUT_EDGES, "Edges layer"))
 
     def _run(self, graph_json: str, config_json: str) -> str:
         raise NotImplementedError
 
+    @staticmethod
+    def _layer_to_geojson_features(layer: QgsVectorLayer) -> list:
+        """Convert all features in a QgsVectorLayer to GeoJSON feature dicts.
+
+        Field values that look like JSON (objects / arrays) are parsed back so
+        nested structures (e.g. the ``lines`` array on edges) survive a
+        round-trip through QGIS memory layers unchanged.
+        """
+        features = []
+        fields = [f.name() for f in layer.fields()]
+        for qf in layer.getFeatures():
+            props = {}
+            for name in fields:
+                raw = qf[name]
+                if isinstance(raw, str):
+                    stripped = raw.strip()
+                    if stripped and stripped[0] in ("{", "["):
+                        try:
+                            raw = json.loads(stripped)
+                        except json.JSONDecodeError:
+                            pass
+                props[name] = raw
+
+            geom_json = json.loads(qf.geometry().asJson())
+            features.append({
+                "type": "Feature",
+                "properties": props,
+                "geometry": geom_json,
+            })
+        return features
+
+    @staticmethod
+    def _make_layer(geom_type: str, geojson_features: list, name: str) -> QgsVectorLayer:
+        """Create an in-memory QgsVectorLayer from a list of GeoJSON feature dicts."""
+        layer = QgsVectorLayer(f"{geom_type}?crs=EPSG:4326", name, "memory")
+        pr = layer.dataProvider()
+
+        # Collect all property keys (preserve first-seen order)
+        seen: set = set()
+        ordered_keys: list = []
+        for f in geojson_features:
+            for k in (f.get("properties") or {}).keys():
+                if k not in seen:
+                    ordered_keys.append(k)
+                    seen.add(k)
+
+        pr.addAttributes([QgsField(k, QVariant.String) for k in ordered_keys])
+        layer.updateFields()
+
+        qgs_feats = []
+        for f in geojson_features:
+            qf = QgsFeature(layer.fields())
+
+            # Properties
+            for k, v in (f.get("properties") or {}).items():
+                if isinstance(v, (dict, list)):
+                    v = json.dumps(v)
+                qf[k] = str(v) if v is not None else None
+
+            # Geometry
+            geom_obj = f.get("geometry") or {}
+            gtype = geom_obj.get("type", "")
+            coords = geom_obj.get("coordinates", [])
+            if gtype == "Point":
+                qf.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(coords[0], coords[1])))
+            elif gtype == "LineString":
+                qf.setGeometry(QgsGeometry.fromPolylineXY(
+                    [QgsPointXY(x, y) for x, y in coords]
+                ))
+            elif gtype == "MultiLineString":
+                qf.setGeometry(QgsGeometry.fromMultiPolylineXY(
+                    [[QgsPointXY(x, y) for x, y in part] for part in coords]
+                ))
+
+            qgs_feats.append(qf)
+
+        pr.addFeatures(qgs_feats)
+        layer.updateExtents()
+        return layer
+
     def processAlgorithm(self, parameters, context: QgsProcessingContext, feedback: QgsProcessingFeedback):
-        graph_json = self.parameterAsString(parameters, self.INPUT, context)
+        nodes_layer = self.parameterAsVectorLayer(parameters, self.INPUT_NODES, context)
+        edges_layer = self.parameterAsVectorLayer(parameters, self.INPUT_EDGES, context)
         config_json = self.parameterAsString(parameters, self.CONFIG, context)
-        feedback.pushInfo(f"Running {self.displayName()} …")
-        result = self._run(graph_json, config_json)
-        return {self.OUTPUT: result}
+
+        feedback.pushInfo(f"Converting input layers to GeoJSON …")
+        node_feats = self._layer_to_geojson_features(nodes_layer)
+        edge_feats = self._layer_to_geojson_features(edges_layer)
+        graph_json = json.dumps({
+            "type": "FeatureCollection",
+            "features": node_feats + edge_feats,
+        })
+        feedback.pushInfo(
+            f"Input: {len(node_feats)} nodes, {len(edge_feats)} edges. "
+            f"Running {self.displayName()} …"
+        )
+
+        result_json = self._run(graph_json, config_json)
+
+        fc = json.loads(result_json)
+        all_features = fc.get("features", [])
+
+        point_feats = [f for f in all_features if f.get("geometry", {}).get("type") == "Point"]
+        line_feats  = [f for f in all_features
+                       if f.get("geometry", {}).get("type") in ("LineString", "MultiLineString")]
+
+        feedback.pushInfo(f"Building layers: {len(point_feats)} nodes, {len(line_feats)} edges.")
+
+        nodes_layer = self._make_layer("Point",      point_feats, f"{self.displayName()} – Nodes")
+        edges_layer = self._make_layer("LineString", line_feats,  f"{self.displayName()} – Edges")
+
+        context.temporaryLayerStore().addMapLayer(nodes_layer)
+        context.temporaryLayerStore().addMapLayer(edges_layer)
+        context.addLayerToLoadOnCompletion(
+            nodes_layer.id(),
+            QgsProcessingContext.LayerDetails(
+                f"{self.displayName()} – Nodes", context.project(), self.OUTPUT_NODES
+            ),
+        )
+        context.addLayerToLoadOnCompletion(
+            edges_layer.id(),
+            QgsProcessingContext.LayerDetails(
+                f"{self.displayName()} – Edges", context.project(), self.OUTPUT_EDGES
+            ),
+        )
+
+        return {self.OUTPUT_NODES: nodes_layer.id(), self.OUTPUT_EDGES: edges_layer.id()}
 
 
 # ---------------------------------------------------------------------------
