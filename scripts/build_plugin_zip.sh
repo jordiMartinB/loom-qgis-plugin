@@ -159,7 +159,7 @@ build_package \
 build_package \
     "windows" \
     "loom_python_plugin-*-${PYTHON_TAG}-*win_amd64*.whl" \
-    "loom.cpython-*.pyd" \
+    "loom*.pyd" \
     "windows"
 
 echo ""
