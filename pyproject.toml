@@ -22,6 +22,10 @@ before-build = [
     "pip install pybind11[global]",
 ]
 
+after-build = [
+    "ccache --show-stats",
+]
+
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
 CMAKE_C_COMPILER_LAUNCHER = "ccache"
@@ -36,5 +40,5 @@ archs = ["AMD64"]   # removed "x86"
 [tool.cibuildwheel.windows.environment]
 CMAKE_BUILD_TYPE = "Release"
 VCPKG_ROOT = "C:/vcpkg"
-CMAKE_C_COMPILER_LAUNCHER = "ccache"
-CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
+CMAKE_C_COMPILER_LAUNCHER = "sccache"
+CMAKE_CXX_COMPILER_LAUNCHER = "sccache"

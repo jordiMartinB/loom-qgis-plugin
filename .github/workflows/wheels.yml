@@ -127,10 +127,6 @@ jobs:
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
-      - name: ccache stats (Linux)
-        if: runner.os != 'Windows'
-        run: ccache --show-stats
-
       - name: sccache stats (Windows)
         if: runner.os == 'Windows'
         run: sccache --show-stats
