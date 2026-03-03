@@ -14,6 +14,8 @@ jobs:
   # ---------------------------------------------------------------------------
   build-wheel-windows:
     runs-on: windows-2022
+    env:
+      SCCACHE_DIR: C:\Users\runneradmin\AppData\Local\Mozilla\sccache
 
     steps:
       - uses: actions/checkout@v4
