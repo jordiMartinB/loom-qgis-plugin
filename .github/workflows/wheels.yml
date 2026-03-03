@@ -96,9 +96,30 @@ jobs:
           restore-keys: |
             ccache-windows-${{ matrix.build_type }}-
 
+      - name: Set up sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Export sccache exe path (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Get-Command sccache).Source
+          echo "SCCACHE_EXE=$exe" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Cache sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\AppData\Local\Mozilla\sccache
+          key: sccache-windows-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          restore-keys: |
+            sccache-windows-${{ matrix.build_type }}-
+
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
+          CIBW_BUILD: cp312-* cp313-* cp314-*
           CIBW_ENVIRONMENT_LINUX: >
             CMAKE_BUILD_TYPE=${{ matrix.build_type }}
             CMAKE_C_COMPILER_LAUNCHER=ccache
@@ -106,10 +127,10 @@ jobs:
             CCACHE_DIR=/project/.ccache
           CIBW_ENVIRONMENT_WINDOWS: >
             CMAKE_BUILD_TYPE=${{ matrix.build_type }}
-            CMAKE_C_COMPILER_LAUNCHER=ccache
-            CMAKE_CXX_COMPILER_LAUNCHER=ccache
-            CCACHE_DIR=C:/ccache
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT Python3_ROOT_DIR"
+            CMAKE_C_COMPILER_LAUNCHER=C:\hostedtoolcache\windows\sccache\0.14.0\x64\sccache.exe
+            CMAKE_CXX_COMPILER_LAUNCHER=C:\hostedtoolcache\windows\sccache\0.14.0\x64\sccache.exe
+            SCCACHE_DIR=C:\Users\runneradmin\AppData\Local\Mozilla\sccache
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
