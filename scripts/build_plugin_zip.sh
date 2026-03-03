@@ -51,8 +51,8 @@ build_package() {
     local ext_glob="$3"
     local platform_suffix="$4"
 
-    # Compose output zip name:  loom_qgis_plugin_linux_v0.1.1.zip
-    local zip_label="${PLUGIN_NAME}_${platform_suffix}"
+    # Compose output zip name:  loom_qgis_plugin_linux_cp312_v0.1.1.zip
+    local zip_label="${PLUGIN_NAME}_${platform_suffix}_${PYTHON_TAG}"
     [[ -n "$VERSION" ]] && zip_label="${zip_label}_${VERSION}"
 
     echo ""

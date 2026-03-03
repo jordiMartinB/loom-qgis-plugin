@@ -37,18 +37,15 @@ jobs:
           architecture: 'x64'
           check-latest: true
 
-      - name: Export Python root
-        run: echo "Python3_ROOT_DIR=$env:pythonLocation" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.22.0
 
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: Release
+          CIBW_BUILD: "cp312-* cp313-* cp314-*"
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT Python3_ROOT_DIR"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
@@ -82,6 +79,7 @@ jobs:
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: Release
+          CIBW_BUILD: "cp312-* cp313-* cp314-*"
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release"
           CIBW_ARCHS_LINUX: "x86_64"
         run: cibuildwheel --output-dir wheelhouse
@@ -122,13 +120,14 @@ jobs:
           name: release-wheels-linux
           path: wheelhouse
 
-      - name: Build plugin zip
-        run: bash scripts/build_plugin_zip.sh cp312 ${{ github.ref_name }}
+      - name: Build plugin zips
+        run: |
+          for tag in cp312 cp313 cp314; do
+            bash scripts/build_plugin_zip.sh "$tag" "${{ github.ref_name }}"
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/loom_qgis_plugin_linux_${{ github.ref_name }}.zip
-            dist/loom_qgis_plugin_windows_${{ github.ref_name }}.zip
+          files: dist/loom_qgis_plugin_*_${{ github.ref_name }}.zip
           generate_release_notes: true   # auto-fills changelog from merged PRs
