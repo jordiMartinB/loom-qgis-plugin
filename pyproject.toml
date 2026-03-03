@@ -3,9 +3,8 @@ requires = ["setuptools>=61", "pybind11[global]>=2.10", "cmake>=3.18,<4"]
 build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
-# Only CPython 3.12, 64-bit
-enable = ["cpython-prerelease"]
-build = ["cp312-*"]
+# CPython 3.12–3.14, 64-bit
+build = ["cp312-*", "cp313-*", "cp314-*"]
 skip  = ["*-manylinux_i686", "*-musllinux*"]
 
 build-frontend = "build"
@@ -13,10 +12,10 @@ build-frontend = "build"
 # ---------- Linux ----------
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
-manylinux-x86_64-image = "manylinux_2_28"
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64:latest"
 
 before-all = [
-    "dnf install -y libzip-devel cmake",
+    "dnf install -y epel-release && dnf install -y ccache libzip-devel cmake",
 ]
 
 before-build = [
@@ -25,6 +24,8 @@ before-build = [
 
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
+CMAKE_C_COMPILER_LAUNCHER = "ccache"
+CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
 
 # ---------- Windows ----------
 [tool.cibuildwheel.windows]
@@ -35,3 +36,5 @@ archs = ["AMD64"]   # removed "x86"
 [tool.cibuildwheel.windows.environment]
 CMAKE_BUILD_TYPE = "Release"
 VCPKG_ROOT = "C:/vcpkg"
+CMAKE_C_COMPILER_LAUNCHER = "ccache"
+CMAKE_CXX_COMPILER_LAUNCHER = "ccache"

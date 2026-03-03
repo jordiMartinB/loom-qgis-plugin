@@ -1,11 +1,9 @@
 from qgis.core import QgsProcessingProvider
 
 from loom_algorithms import (
-    BuildGraphAlgorithm,
     RunTopoAlgorithm,
     RunLoomAlgorithm,
     RunOctiAlgorithm,
-    RunTransitMapAlgorithm,
 )
 
 
@@ -23,10 +21,8 @@ class LoomProvider(QgsProcessingProvider):
 
     def loadAlgorithms(self):
         for algo_cls in (
-            BuildGraphAlgorithm,
             RunTopoAlgorithm,
             RunLoomAlgorithm,
             RunOctiAlgorithm,
-            RunTransitMapAlgorithm,
         ):
             self.addAlgorithm(algo_cls())

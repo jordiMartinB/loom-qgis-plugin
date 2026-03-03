@@ -1,16 +1,15 @@
-name: Release
+name: Dev Build
 
-# Triggered when you push a version tag (either v0.1.0 or 0.1.0), or run manually.
+# Triggered on every push to the development branch, or manually.
 on:
   push:
-    tags:
-      - 'v*'       # tags that start with "v", e.g. v0.1.0
-      - '[0-9]*'   # tags that start with a digit, e.g. 0.1.0
+    branches:
+      - development
   workflow_dispatch: {}
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. Build the Windows wheel
+  # 1. Build the Windows wheels
   # ---------------------------------------------------------------------------
   build-wheel-windows:
     runs-on: windows-2022
@@ -21,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0   # needed for git describe
 
       - name: Install libzip (vcpkg)
         run: |
@@ -61,15 +61,14 @@ jobs:
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
-      # Keep wheels available for the next job
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-wheels-windows
+          name: dev-wheels-windows
           path: wheelhouse/*.whl
 
   # ---------------------------------------------------------------------------
-  # 2. Build the Linux wheel
+  # 2. Build the Linux wheels
   # ---------------------------------------------------------------------------
   build-wheel-linux:
     runs-on: ubuntu-22.04
@@ -78,6 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0   # needed for git describe
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
@@ -111,46 +111,64 @@ jobs:
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-wheels-linux
+          name: dev-wheels-linux
           path: wheelhouse/*.whl
 
   # ---------------------------------------------------------------------------
-  # 3. Package the plugin zip and publish the GitHub Release
+  # 3. Package plugin zips and update the rolling "dev" pre-release
   # ---------------------------------------------------------------------------
-  publish-release:
+  publish-dev:
     needs: [build-wheel-windows, build-wheel-linux]
     runs-on: ubuntu-22.04
 
     permissions:
-      contents: write   # required to create/edit releases and upload assets
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for git describe
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
+      - name: Compute dev version
+        id: version
+        run: |
+          # e.g. "v0.1.2-5-gabcdef" → "v0.1.2-dev" for simplicity,
+          # or fall back to "dev" if no tag exists yet.
+          BASE=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION="${BASE}-dev"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Download Windows wheels
         uses: actions/download-artifact@v4
         with:
-          name: release-wheels-windows
+          name: dev-wheels-windows
           path: wheelhouse
 
       - name: Download Linux wheels
         uses: actions/download-artifact@v4
         with:
-          name: release-wheels-linux
+          name: dev-wheels-linux
           path: wheelhouse
 
       - name: Build plugin zips
-        run: bash scripts/build_plugin_zip.sh "${{ github.ref_name }}" cp312 cp313 cp314
+        run: bash scripts/build_plugin_zip.sh "${{ steps.version.outputs.VERSION }}" cp312 cp313 cp314
 
-      - name: Create GitHub Release
+      - name: Update rolling "dev" pre-release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: dev
+          name: "Development build (${{ steps.version.outputs.VERSION }})"
+          prerelease: true
           files: |
-            dist/loom_qgis_plugin_linux_${{ github.ref_name }}.zip
-            dist/loom_qgis_plugin_windows_${{ github.ref_name }}.zip
-          generate_release_notes: true   # auto-fills changelog from merged PRs
+            dist/loom_qgis_plugin_linux_${{ steps.version.outputs.VERSION }}.zip
+            dist/loom_qgis_plugin_windows_${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: false
+          body: |
+            Automated development build from the `development` branch.
+            Based on **${{ steps.version.outputs.VERSION }}**.
+            Built from commit ${{ github.sha }}.

@@ -18,16 +18,32 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install libzip (Windows)
+      - name: Pin vcpkg commit (Windows)
         if: runner.os == 'Windows'
+        id: vcpkg-pin
         run: |
-          # Pin vcpkg to a known-good commit that doesn't require PS 7.5.4
           cd C:\vcpkg
           git fetch
           git checkout 2024-04-23
           .\bootstrap-vcpkg.bat
-          .\vcpkg install libzip:x64-windows
+          $commit = git rev-parse HEAD
+          echo "VCPKG_COMMIT=$commit" >> $env:GITHUB_ENV
+          echo "commit=$commit" >> $env:GITHUB_OUTPUT
           echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Cache vcpkg packages (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-${{ steps.vcpkg-pin.outputs.commit }}-libzip-x64-windows
+
+      - name: Install libzip (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd C:\vcpkg
+          .\vcpkg install libzip:x64-windows
         shell: pwsh
 
       - name: Set up Python 3.12 (Linux / macOS)
@@ -36,6 +52,7 @@ jobs:
         with:
           python-version: '3.12'
           check-latest: true
+          cache: 'pip'
 
       - name: Set up Python 3.12 (Windows x64)
         if: runner.os == 'Windows'
@@ -44,6 +61,7 @@ jobs:
           python-version: '3.12'
           architecture: 'x64'
           check-latest: true
+          cache: 'pip'
 
       - name: Export Python root (Windows)
         if: runner.os == 'Windows'
@@ -53,15 +71,70 @@ jobs:
         shell: pwsh
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.22.0
+        run: pip install cibuildwheel
+
+      - name: Cache ccache (Linux)
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-linux-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          restore-keys: |
+            ccache-linux-${{ matrix.build_type }}-
+
+      - name: Set up sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Export sccache env vars (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $env:GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $env:GITHUB_ENV
+          echo "SCCACHE_DIR=C:\Users\runneradmin\AppData\Local\Mozilla\sccache" >> $env:GITHUB_ENV
+          echo "SCCACHE_IDLE_TIMEOUT=0" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Cache sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\AppData\Local\Mozilla\sccache
+          key: sccache-windows-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          restore-keys: |
+            sccache-windows-${{ matrix.build_type }}-
+
+      - name: Cache CMake build dir (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: cmake-build-windows-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          restore-keys: |
+            cmake-build-windows-${{ matrix.build_type }}-
 
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
-          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT Python3_ROOT_DIR"
+          CIBW_BUILD: cp312-* cp313-* cp314-*
+          CIBW_ENVIRONMENT_LINUX: >
+            CMAKE_BUILD_TYPE=${{ matrix.build_type }}
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/project/.ccache
+          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER SCCACHE_DIR SCCACHE_IDLE_TIMEOUT"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
+
+      - name: ccache stats (Linux)
+        if: runner.os != 'Windows'
+        run: ccache --show-stats
+
+      - name: sccache stats (Windows)
+        if: runner.os == 'Windows'
+        run: sccache --show-stats
+        shell: pwsh
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
