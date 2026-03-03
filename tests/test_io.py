@@ -157,10 +157,4 @@ def test_io_pipeline(loom_module):
         out.write(octi_result)
     print(f"✓ octi output saved to {octi_output}")
 
-    # Stage 4: transitmap
-    transitmap_config = json.dumps(CONFIG["transitmap"])
-    transitmap_result = loom_module.run_transitmap([octi_result, transitmap_config])
-    transitmap_output = os.path.join(OUTPUT_DIR, f"{base_name}-transitmap-out.svg")
-    with open(transitmap_output, "w") as out:
-        out.write(transitmap_result)
-    print(f"✓ transitmap output saved to {transitmap_output}")
+    # Note: transitmap rendering is not exposed via the Python API anymore.

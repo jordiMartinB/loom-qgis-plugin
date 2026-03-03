@@ -3,7 +3,7 @@
 # Usage:
 #   scripts\build_plugin_zip.ps1 [PYTHON_TAG]
 #
-# PYTHON_TAG selects which wheel to bundle the binary from (default: cp314).
+# PYTHON_TAG selects which wheel to bundle the binary from (default: cp312).
 # Examples:  cp310  cp311  cp312  cp313  cp314
 #
 # The output is:  dist\loom_qgis_plugin.zip
@@ -11,7 +11,7 @@
 # places in its plugins directory.
 
 param(
-    [string]$PythonTag = "cp314"
+    [string]$PythonTag = "cp312"
 )
 
 $ErrorActionPreference = "Stop"

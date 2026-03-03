@@ -4,7 +4,7 @@
 # Usage:
 #   scripts/build_plugin_zip.sh [PYTHON_TAG]
 #
-# PYTHON_TAG selects which wheel to bundle the binary from (default: cp314).
+# PYTHON_TAG selects which wheel to bundle the binary from (default: cp312).
 # Examples:  cp310  cp311  cp312  cp313  cp314
 #
 # The output is:  dist/loom_qgis_plugin.zip
@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-PYTHON_TAG="${1:-cp314}"
+PYTHON_TAG="${1:-cp312}"
 WHEELHOUSE="$REPO_ROOT/wheelhouse"
 DIST_DIR="$REPO_ROOT/dist"
 PLUGIN_NAME="loom_qgis_plugin"

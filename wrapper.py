@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-__all__ = ["run_topo", "run_octi", "run_transitmap", "run_loom"]
+__all__ = ["run_topo", "run_octi", "run_loom"]
 
 _backend_cache: Dict[str, Any] = {}  # key: backend_name -> module
 
@@ -119,17 +119,3 @@ def run_octi(graph_json: str, config_json: str) -> str:
         str: Output graph as JSON string
     """
     return _call("run_octi", [graph_json, config_json])
-
-
-def run_transitmap(graph_json: str, config_json: str) -> str:
-    """
-    Run the transitmap rendering stage.
-    
-    Args:
-        graph_json: Input graph as JSON string
-        config_json: Configuration as JSON string
-        
-    Returns:
-        str: Rendered output (e.g. SVG) as string
-    """
-    return _call("run_transitmap", [graph_json, config_json])

@@ -13,7 +13,7 @@ from qgis.core import (
     QgsJsonExporter,
 )
 
-from wrapper import run_topo, run_loom, run_octi, run_transitmap
+from wrapper import run_topo, run_loom, run_octi
 
 # ---------------------------------------------------------------------------
 # Load default configurations from algorithm_config.json (sits next to this
@@ -315,19 +315,5 @@ class RunOctiAlgorithm(_LoomBaseAlgorithm):
         return RunOctiAlgorithm()
 
 
-class RunTransitMapAlgorithm(_LoomBaseAlgorithm):
-    _name = "run_transitmap"
-    _display_name = "Run TransitMap"
-    _config_key = "transitmap"
-    _short_help = (
-        "Render a transit graph to SVG using the loom <i>transitmap</i> "
-        "stage. Accepts a graph JSON and a configuration JSON, returns "
-        "the rendered SVG as a string."
-    )
-
-
-    def _run(self, graph_json: str, config_json: str) -> str:
-        return run_transitmap(graph_json, config_json)
-
-    def createInstance(self):
-        return RunTransitMapAlgorithm()
+# Note: `run_transitmap` was removed from the Python API; transitmap
+# rendering is no longer exposed as a processing algorithm.

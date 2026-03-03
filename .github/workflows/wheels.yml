@@ -30,18 +30,18 @@ jobs:
           echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
         shell: pwsh
 
-      - name: Set up Python 3.11 (Linux / macOS)
+      - name: Set up Python 3.12 (Linux / macOS)
         if: runner.os != 'Windows'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           check-latest: true
 
-      - name: Set up Python 3.11 (Windows x64)
+      - name: Set up Python 3.12 (Windows x64)
         if: runner.os == 'Windows'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           architecture: 'x64'
           check-latest: true
 

@@ -24,9 +24,6 @@ def run_loom(args):
 
 def run_octi(args):
     return f"octi: {args[0][:20]}... + config"
-
-def run_transitmap(args):
-    return f"transitmap: {args[0][:20]}... + config"
 """)
 
     # Set up sys.path
@@ -65,6 +62,3 @@ def test_proxy_functions_with_correct_signatures(wrapper):
 
     result = wrapper.run_octi(graph, config)
     assert "octi:" in result
-
-    result = wrapper.run_transitmap(graph, config)
-    assert "transitmap:" in result
