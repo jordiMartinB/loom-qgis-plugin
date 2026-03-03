@@ -1,0 +1,93 @@
+name: Release
+
+# Triggered when you push a version tag:  git tag v1.2.3 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build the Windows wheel (Release build, same matrix slice as wheels.yml)
+  # ---------------------------------------------------------------------------
+  build-wheel:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install libzip (vcpkg)
+        run: |
+          cd C:\vcpkg
+          git fetch
+          git checkout 2024-04-23
+          .\bootstrap-vcpkg.bat
+          .\vcpkg install libzip:x64-windows
+          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Set up Python 3.11 (x64)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+          check-latest: true
+
+      - name: Export Python root
+        run: echo "Python3_ROOT_DIR=$env:pythonLocation" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.22.0
+
+      - name: Build wheels
+        env:
+          CMAKE_BUILD_TYPE: Release
+          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT Python3_ROOT_DIR"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+        run: cibuildwheel --output-dir wheelhouse
+
+      # Keep wheels available for the next job
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels
+          path: wheelhouse/*.whl
+
+  # ---------------------------------------------------------------------------
+  # 2. Package the plugin zip and publish the GitHub Release
+  # ---------------------------------------------------------------------------
+  publish-release:
+    needs: build-wheel
+    runs-on: windows-2022
+
+    permissions:
+      contents: write   # required to create/edit releases and upload assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11 (x64)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Download wheels from previous job
+        uses: actions/download-artifact@v4
+        with:
+          name: release-wheels
+          path: wheelhouse
+
+      - name: Build plugin zip
+        run: .\scripts\build_plugin_zip.ps1
+        shell: pwsh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/loom_qgis_plugin.zip
+          generate_release_notes: true   # auto-fills changelog from merged PRs

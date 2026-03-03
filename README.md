@@ -4,24 +4,53 @@
 The `loom-qgis-plugin` is a QGIS plugin designed to enhance the functionality of the QGIS application. This plugin provides users with additional tools and features to improve their geospatial data processing and visualization.
 
 ## Installation
-To install the `loom-qgis-plugin`, follow these steps:
+To install the `loom-qgis-plugin` you can either build locally from source or install a
+prebuilt plugin zip from the project's GitHub Releases (recommended).
+
+**Build from source**
 
 1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/loom-qgis-plugin.git
-   ```
+  ```bash
+  git clone https://github.com/yourusername/loom-qgis-plugin.git
+  ```
 2. Navigate to the plugin directory:
-   ```
-   cd loom-qgis-plugin
-   ```
-3. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-4. Load the plugin in QGIS:
-   - Open QGIS.
-   - Go to `Plugins` > `Manage and Install Plugins`.
-   - Click on `Install from ZIP` and select the cloned directory.
+  ```bash
+  cd loom-qgis-plugin
+  ```
+3. Install build/runtime dependencies (for development):
+  ```bash
+  pip install -r requirements.txt
+  ```
+4. Load the plugin in QGIS for development:
+  - Open QGIS.
+  - Go to Plugins > Manage and Install Plugins.
+  - Click Install from ZIP and select the built plugin zip under `dist/`.
+
+**Install from Releases (no token required, public repos)**
+
+The project now publishes a ready-to-install zip as a GitHub Release asset. You do not
+need a GitHub token to download public release assets.
+
+- **Windows (PowerShell)** — latest release:
+  ```powershell
+  .\scripts\fetch_plugin.ps1
+  ```
+  or download a specific tag:
+  ```powershell
+  .\scripts\fetch_plugin.ps1 -Tag v1.2.3
+  ```
+
+- **Linux / macOS (bash)** — latest release:
+  ```bash
+  bash scripts/fetch_plugin.sh
+  ```
+  or a specific tag:
+  ```bash
+  bash scripts/fetch_plugin.sh --tag v1.2.3
+  ```
+
+Both scripts download `dist/loom_qgis_plugin.zip`. Install in QGIS via Plugins > Manage and Install
+Plugins > Install from ZIP and point to the downloaded file.
 
 ## Usage
 Once installed, you can access the `loom-qgis-plugin` from the QGIS Plugins menu. The plugin provides a dock widget that allows you to interact with its features.
