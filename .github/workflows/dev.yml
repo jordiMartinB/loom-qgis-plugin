@@ -50,17 +50,15 @@ jobs:
           restore-keys: sccache-windows-
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.22.0
+        run: pip install cibuildwheel
 
       - name: Build wheels
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
-          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release"
+          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release SCCACHE_DIR=${{ env.SCCACHE_DIR }} CMAKE_C_COMPILER_LAUNCHER=sccache CMAKE_CXX_COMPILER_LAUNCHER=sccache"
           CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT SCCACHE_DIR"
           CIBW_ARCHS_WINDOWS: "AMD64"
-          CMAKE_C_COMPILER_LAUNCHER: sccache
-          CMAKE_CXX_COMPILER_LAUNCHER: sccache
         run: cibuildwheel --output-dir wheelhouse
 
       - name: Upload wheel artifact
@@ -95,7 +93,7 @@ jobs:
           restore-keys: ccache-linux-
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.22.0
+        run: pip install cibuildwheel
 
       - name: Build wheels
         env:
@@ -105,7 +103,7 @@ jobs:
             CMAKE_BUILD_TYPE=Release
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
-            CCACHE_DIR=/host/root/.ccache
+            CCACHE_DIR=/host/home/runner/.ccache
             CCACHE_MAXSIZE=500M
           CIBW_ARCHS_LINUX: "x86_64"
         run: cibuildwheel --output-dir wheelhouse

@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
 # CPython 3.12–3.14, 64-bit
-enable = ["cpython-prerelease"]
 build = ["cp312-*", "cp313-*", "cp314-*"]
 skip  = ["*-manylinux_i686", "*-musllinux*"]
 
@@ -13,7 +12,7 @@ build-frontend = "build"
 # ---------- Linux ----------
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
-manylinux-x86_64-image = "manylinux_2_28"
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64:latest"
 
 before-all = [
     "dnf install -y epel-release && dnf install -y ccache libzip-devel cmake",
