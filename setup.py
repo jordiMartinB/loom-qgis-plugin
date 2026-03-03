@@ -86,13 +86,24 @@ class CMakeBuild(build_ext):
             if val:
                 cmake_args.append(f"-D{var}={val}")
 
+        # Honour generator toolset (e.g. ClangCL) if set in the environment
+        toolset = os.environ.get("CMAKE_GENERATOR_TOOLSET")
+        if toolset:
+            cmake_args += ["-T", toolset]
+
         build_dir = Path(self.build_temp) / ext.name
         build_dir.mkdir(parents=True, exist_ok=True)
 
-        subprocess.run(
-            ["cmake", str(ext.source_dir), *cmake_args],
-            cwd=build_dir, check=True,
-        )
+        cmake_cache = build_dir / "CMakeCache.txt"
+        if not cmake_cache.exists():
+            print("CMakeCache.txt not found — running full CMake configure …")
+            subprocess.run(
+                ["cmake", str(ext.source_dir), *cmake_args],
+                cwd=build_dir, check=True,
+            )
+        else:
+            print("CMakeCache.txt found — skipping configure, using cached build dir.")
+
         subprocess.run(
             ["cmake", "--build", ".", "--config", build_type, "--parallel"],
             cwd=build_dir, check=True,

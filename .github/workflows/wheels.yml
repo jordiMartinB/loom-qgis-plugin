@@ -93,6 +93,7 @@ jobs:
           echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $env:GITHUB_ENV
           echo "SCCACHE_DIR=C:\Users\runneradmin\AppData\Local\Mozilla\sccache" >> $env:GITHUB_ENV
           echo "SCCACHE_IDLE_TIMEOUT=0" >> $env:GITHUB_ENV
+          echo "CMAKE_GENERATOR_TOOLSET=ClangCL" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Cache sccache (Windows)
@@ -123,7 +124,7 @@ jobs:
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/project/.ccache
           CIBW_ENVIRONMENT_WINDOWS: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER SCCACHE_DIR SCCACHE_IDLE_TIMEOUT"
+          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER SCCACHE_DIR SCCACHE_IDLE_TIMEOUT CMAKE_GENERATOR_TOOLSET"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
