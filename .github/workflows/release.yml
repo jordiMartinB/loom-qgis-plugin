@@ -6,6 +6,8 @@ on:
     tags:
       - 'v*'       # tags that start with "v", e.g. v0.1.0
       - '[0-9]*'   # tags that start with a digit, e.g. 0.1.0
+      - 'v*'
+      - '[0-9]*'
   workflow_dispatch: {}
 
 jobs:
