@@ -9,8 +9,6 @@ skip  = ["*-manylinux_i686", "*-musllinux*"]
 
 build-frontend = "build"
 
-after-build = "ccache --show-stats || sccache --show-stats || true"
-
 # ---------- Linux ----------
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
@@ -22,7 +20,10 @@ before-all = [
 
 before-build = [
     "pip install pybind11[global]",
+    "ccache --show-stats",
 ]
+
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel} && ccache --show-stats"
 
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
