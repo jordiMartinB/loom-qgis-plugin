@@ -63,13 +63,6 @@ jobs:
           check-latest: true
           cache: 'pip'
 
-      - name: Export Python root (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          # pass the real Python install root into the cibuildwheel build env
-          echo "Python3_ROOT_DIR=$env:pythonLocation" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Install cibuildwheel
         run: pip install cibuildwheel
 
