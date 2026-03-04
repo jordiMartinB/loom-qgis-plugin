@@ -93,6 +93,24 @@ class CMakeBuild(build_ext):
             if val:
                 cmake_args.append(f"-D{var}={val}")
 
+        # macOS cross-compilation: cibuildwheel sets ARCHFLAGS="-arch x86_64"
+        # (or "-arch arm64") when the target arch differs from the host arch.
+        # Pass it to CMake so the compiled .so really targets the right slice.
+        archflags = os.environ.get("ARCHFLAGS", "")
+        if archflags:
+            archs = [
+                part
+                for flag, part in zip(archflags.split(), archflags.split()[1:])
+                if flag == "-arch"
+            ]
+            if archs:
+                cmake_args.append(f"-DCMAKE_OSX_ARCHITECTURES={';'.join(archs)}")
+
+        # Propagate deployment target so the wheel tag and the binary agree.
+        deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET", "")
+        if deployment_target:
+            cmake_args.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}")
+
         # Always use Ninja: it respects CMAKE_C/CXX_COMPILER_LAUNCHER on all
         # platforms (the default Visual Studio generator on Windows and Make on
         # Linux silently ignore launcher vars).
