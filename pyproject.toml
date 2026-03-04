@@ -15,7 +15,7 @@ archs = ["x86_64"]
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64:latest"
 
 before-all = [
-    "dnf install -y epel-release && dnf install -y ccache libzip-devel cmake",
+    "dnf install -y epel-release && dnf install -y ccache ninja-build libzip-devel cmake",
 ]
 
 before-build = [
@@ -25,6 +25,7 @@ before-build = [
 
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
+CMAKE_GENERATOR = "Ninja"
 CMAKE_C_COMPILER_LAUNCHER = "ccache"
 CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
 

@@ -136,8 +136,8 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
-          # Ensure ninja is present inside the manylinux container.
-          CIBW_BEFORE_ALL_LINUX: "dnf install -y ninja-build || yum install -y ninja-build || apt-get install -y ninja-build"
+          # before-all and environment for Linux are defined in pyproject.toml.
+          # Only pass through the CCACHE_DIR so the cache action's path is used.
           CIBW_ENVIRONMENT_LINUX: >-
             CMAKE_BUILD_TYPE=Release
             CMAKE_GENERATOR=Ninja
