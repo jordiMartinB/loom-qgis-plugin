@@ -37,3 +37,22 @@ archs = ["AMD64"]   # removed "x86"
 CMAKE_BUILD_TYPE = "Release"
 CMAKE_C_COMPILER_LAUNCHER = "sccache"
 CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
+
+# ---------- macOS ----------
+[tool.cibuildwheel.macos]
+archs = ["arm64", "x86_64"]
+
+before-all = [
+    "brew install ccache ninja",
+]
+
+before-build = [
+    "pip install pybind11[global]",
+    "ccache --show-stats",
+]
+
+[tool.cibuildwheel.macos.environment]
+CMAKE_BUILD_TYPE = "Release"
+CMAKE_GENERATOR = "Ninja"
+CMAKE_C_COMPILER_LAUNCHER = "ccache"
+CMAKE_CXX_COMPILER_LAUNCHER = "ccache"

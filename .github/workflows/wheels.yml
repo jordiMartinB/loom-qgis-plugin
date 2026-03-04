@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:          [ubuntu-latest, windows-2022]
+        os:          [ubuntu-latest, windows-2022, macos-14]
         build_type:  [Release, Debug]
 
     runs-on: ${{ matrix.os }}
@@ -38,14 +38,18 @@ jobs:
       - name: Install cibuildwheel
         run: pip install cibuildwheel
 
-      - name: Cache ccache (Linux)
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ccache ninja
+
+      - name: Cache ccache (Linux / macOS)
         if: runner.os != 'Windows'
         uses: actions/cache@v4
         with:
           path: .ccache
-          key: ccache-linux-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
+          key: ccache-${{ runner.os }}-${{ matrix.build_type }}-${{ hashFiles('src/loom/**') }}
           restore-keys: |
-            ccache-linux-${{ matrix.build_type }}-
+            ccache-${{ runner.os }}-${{ matrix.build_type }}-
 
       - name: Set up sccache (Windows)
         if: runner.os == 'Windows'
@@ -87,9 +91,15 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/project/.ccache
+          CIBW_ENVIRONMENT_MACOS: >
+            CMAKE_BUILD_TYPE=${{ matrix.build_type }}
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=${{ github.workspace }}/.ccache
           CIBW_ENVIRONMENT_WINDOWS: "CMAKE_BUILD_TYPE=${{ matrix.build_type }}"
           CIBW_ENVIRONMENT_PASS: "CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER SCCACHE_DIR SCCACHE_IDLE_TIMEOUT"
           CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_ARCHS_MACOS: "arm64 x86_64"
         run: cibuildwheel --output-dir wheelhouse
 
       - name: sccache stats (Windows)
@@ -97,7 +107,7 @@ jobs:
         run: sccache --show-stats
         shell: pwsh
 
-      - name: ccache stats (Linux)
+      - name: ccache stats (Linux / macOS)
         if: runner.os != 'Windows'
         env:
           CCACHE_DIR: .ccache

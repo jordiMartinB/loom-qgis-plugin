@@ -126,10 +126,61 @@ jobs:
           path: wheelhouse/*.whl
 
   # ---------------------------------------------------------------------------
-  # 3. Package plugin zips and update the rolling "dev" pre-release
+  # 3. Build the macOS wheels (arm64 + x86_64)
+  # ---------------------------------------------------------------------------
+  build-wheel-macos:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0   # needed for git describe
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          check-latest: true
+
+      - name: Install build tools
+        run: brew install ccache ninja
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-macos-${{ hashFiles('src/**', 'setup.py', 'setup.cfg') }}
+          restore-keys: ccache-macos-
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel
+
+      - name: Build wheels
+        env:
+          CMAKE_BUILD_TYPE: Release
+          CIBW_BUILD: "cp312-* cp313-* cp314-*"
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_BUILD_TYPE=Release
+            CMAKE_GENERATOR=Ninja
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=${{ github.workspace }}/.ccache
+            CCACHE_MAXSIZE=500M
+          CIBW_ARCHS_MACOS: "arm64 x86_64"
+        run: cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-wheels-macos
+          path: wheelhouse/*.whl
+
+  # ---------------------------------------------------------------------------
+  # 4. Package plugin zips and update the rolling "dev" pre-release
   # ---------------------------------------------------------------------------
   publish-dev:
-    needs: [build-wheel-windows, build-wheel-linux]
+    needs: [build-wheel-windows, build-wheel-linux, build-wheel-macos]
     runs-on: ubuntu-22.04
 
     permissions:
@@ -166,6 +217,12 @@ jobs:
           name: dev-wheels-linux
           path: wheelhouse
 
+      - name: Download macOS wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: dev-wheels-macos
+          path: wheelhouse
+
       - name: Build plugin zips
         run: bash scripts/build_plugin_zip.sh "${{ steps.version.outputs.VERSION }}" cp312 cp313 cp314
 
@@ -178,6 +235,8 @@ jobs:
           files: |
             dist/loom_qgis_plugin_linux_${{ steps.version.outputs.VERSION }}.zip
             dist/loom_qgis_plugin_windows_${{ steps.version.outputs.VERSION }}.zip
+            dist/loom_qgis_plugin_macos_arm64_${{ steps.version.outputs.VERSION }}.zip
+            dist/loom_qgis_plugin_macos_x86_64_${{ steps.version.outputs.VERSION }}.zip
           generate_release_notes: false
           body: |
             Automated development build from the `development` branch.

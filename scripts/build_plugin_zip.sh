@@ -176,5 +176,17 @@ build_package \
     "loom*.pyd" \
     "windows"
 
+build_package \
+    "macos-arm64" \
+    "loom_python_plugin-*-PYTAG-*macosx*arm64*.whl" \
+    "loom*.so" \
+    "macos_arm64"
+
+build_package \
+    "macos-x86_64" \
+    "loom_python_plugin-*-PYTAG-*macosx*x86_64*.whl" \
+    "loom*.so" \
+    "macos_x86_64"
+
 echo ""
 echo "Done."
