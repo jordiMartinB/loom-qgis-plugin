@@ -56,8 +56,28 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
-          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release SCCACHE_DIR=$SCCACHE_DIR CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH"
+          # Use CIBW_ENVIRONMENT_WINDOWS (not CIBW_ENVIRONMENT) so these
+          # overrides only apply on Windows.
+          #
+          # Critically: actions/setup-python sets Python3_ROOT_DIR (and the
+          # Python_ROOT_DIR / Python2_ROOT_DIR aliases) to the 3.12 toolcache
+          # path.  On Windows cibuildwheel does NOT use a container, so every
+          # subprocess (including CMake) inherits those env vars.  CMake's
+          # FindPython3 / pybind11's FindPython then ignores the target Python
+          # and always picks 3.12, producing only cp312 .pyd files even when
+          # building cp313/cp314 wheels.
+          #
+          # Setting these to empty here tells CMake to rely solely on the
+          # Python3_EXECUTABLE / PYTHON_EXECUTABLE flag that setup.py passes
+          # via -D, which always points to the cibuildwheel-managed venv.
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_BUILD_TYPE=Release
+            CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH
+            CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH
+            Python3_ROOT_DIR=
+            Python_ROOT_DIR=
+            Python2_ROOT_DIR=
+          CIBW_ENVIRONMENT_PASS_WINDOWS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
