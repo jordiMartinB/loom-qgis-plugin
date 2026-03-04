@@ -22,15 +22,34 @@ jobs:
           submodules: recursive
           fetch-depth: 0   # needed for git describe
 
+      - name: Set up vcpkg binary cache
+        shell: pwsh
+        run: |
+          # Tell vcpkg to store compiled packages in a predictable location so
+          # actions/cache can persist them between runs.
+          $cacheDir = "C:\vcpkg-binary-cache"
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
+          echo "VCPKG_ROOT=C:/vcpkg"                  >> $env:GITHUB_ENV
+
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg-binary-cache
+          # Key covers the vcpkg baseline commit + the package list so a
+          # different vcpkg or a new package triggers a fresh build.
+          key: vcpkg-windows-libzip-${{ hashFiles('**/vcpkg.json') }}-2024-04-23
+          restore-keys: vcpkg-windows-libzip-
+
       - name: Install libzip (vcpkg)
+        shell: pwsh
         run: |
           cd C:\vcpkg
-          git fetch
-          git checkout 2024-04-23
-          .\bootstrap-vcpkg.bat
+          # Bring vcpkg up-to-date and bootstrap (no-ops if already current).
+          git fetch --quiet
+          .\bootstrap-vcpkg.bat -disableMetrics | Out-Null
+          # vcpkg will skip packages already present in the binary cache.
           .\vcpkg install libzip:x64-windows
-          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
-        shell: pwsh
 
       - name: Set up Python 3.12 (x64)
         uses: actions/setup-python@v4
@@ -49,6 +68,14 @@ jobs:
           key: sccache-windows-${{ hashFiles('src/**', 'setup.py', 'setup.cfg') }}
           restore-keys: sccache-windows-
 
+      - name: Set up MSVC environment
+        # Required so clang-cl can find MSVC headers, libs and link.exe.
+        # LLVM/Clang (clang-cl, lld-link, ninja) are pre-installed on
+        # the windows-2022 runner at C:\Program Files\LLVM\bin.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Install cibuildwheel
         run: pip install cibuildwheel
 
@@ -56,28 +83,18 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
-          # Use CIBW_ENVIRONMENT_WINDOWS (not CIBW_ENVIRONMENT) so these
-          # overrides only apply on Windows.
-          #
-          # Critically: actions/setup-python sets Python3_ROOT_DIR (and the
-          # Python_ROOT_DIR / Python2_ROOT_DIR aliases) to the 3.12 toolcache
-          # path.  On Windows cibuildwheel does NOT use a container, so every
-          # subprocess (including CMake) inherits those env vars.  CMake's
-          # FindPython3 / pybind11's FindPython then ignores the target Python
-          # and always picks 3.12, producing only cp312 .pyd files even when
-          # building cp313/cp314 wheels.
-          #
-          # Setting these to empty here tells CMake to rely solely on the
-          # Python3_EXECUTABLE / PYTHON_EXECUTABLE flag that setup.py passes
-          # via -D, which always points to the cibuildwheel-managed venv.
           CIBW_ENVIRONMENT_WINDOWS: >-
             CMAKE_BUILD_TYPE=Release
+            CMAKE_C_COMPILER=clang-cl
+            CMAKE_CXX_COMPILER=clang-cl
             CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH
             CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH
             Python3_ROOT_DIR=
             Python_ROOT_DIR=
             Python2_ROOT_DIR=
-          CIBW_ENVIRONMENT_PASS_WINDOWS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH"
+          # Pass VCPKG, sccache, and also the MSVC env vars that ilammy sets
+          # (LIB, INCLUDE, LIBPATH) so clang-cl can find the Windows SDK.
+          CIBW_ENVIRONMENT_PASS_WINDOWS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH LIB INCLUDE LIBPATH"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
@@ -119,8 +136,11 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
+          # Ensure ninja is present inside the manylinux container.
+          CIBW_BEFORE_ALL_LINUX: "dnf install -y ninja-build || yum install -y ninja-build || apt-get install -y ninja-build"
           CIBW_ENVIRONMENT_LINUX: >-
             CMAKE_BUILD_TYPE=Release
+            CMAKE_GENERATOR=Ninja
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/host/home/runner/.ccache

@@ -86,10 +86,16 @@ class CMakeBuild(build_ext):
             if val:
                 cmake_args.append(f"-D{var}={val}")
 
-        # Use Ninja on Windows so CMAKE_C/CXX_COMPILER_LAUNCHER is honoured
-        # (the default Visual Studio generator silently ignores launcher vars)
-        if sys.platform == "win32":
-            cmake_args += ["-G", "Ninja"]
+        # Honour explicit compiler overrides (e.g. clang-cl / clang / gcc).
+        for var in ("CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER"):
+            val = os.environ.get(var)
+            if val:
+                cmake_args.append(f"-D{var}={val}")
+
+        # Always use Ninja: it respects CMAKE_C/CXX_COMPILER_LAUNCHER on all
+        # platforms (the default Visual Studio generator on Windows and Make on
+        # Linux silently ignore launcher vars).
+        cmake_args += ["-G", "Ninja"]
 
         build_dir = Path(self.build_temp) / ext.name
         build_dir.mkdir(parents=True, exist_ok=True)
