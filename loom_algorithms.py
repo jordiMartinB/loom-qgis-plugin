@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 from PyQt5.QtCore import QVariant
@@ -39,6 +40,10 @@ def _to_python_native(val):
     if isinstance(val, int):
         return val
     if isinstance(val, float):
+        # NaN and Inf are not valid JSON; treat them as missing/null so that
+        # the existing null-filtering in _layer_to_geojson_features drops them.
+        if math.isnan(val) or math.isinf(val):
+            return None
         return val
     if isinstance(val, str):
         return val
