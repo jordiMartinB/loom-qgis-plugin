@@ -22,35 +22,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0   # needed for git describe
 
-      - name: Set up vcpkg binary cache
-        shell: pwsh
-        run: |
-          # Tell vcpkg to store compiled packages in a predictable location so
-          # actions/cache can persist them between runs.
-          $cacheDir = "C:\vcpkg-binary-cache"
-          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
-          echo "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
-          echo "VCPKG_ROOT=C:/vcpkg"                  >> $env:GITHUB_ENV
-
-      - name: Cache vcpkg binary cache
-        uses: actions/cache@v4
-        with:
-          path: C:\vcpkg-binary-cache
-          # Key covers the vcpkg baseline commit + the package list so a
-          # different vcpkg or a new package triggers a fresh build.
-          key: vcpkg-windows-libzip-${{ hashFiles('**/vcpkg.json') }}-2024-04-23
-          restore-keys: vcpkg-windows-libzip-
-
-      - name: Install libzip (vcpkg)
-        shell: pwsh
-        run: |
-          cd C:\vcpkg
-          # Bring vcpkg up-to-date and bootstrap (no-ops if already current).
-          git fetch --quiet
-          .\bootstrap-vcpkg.bat -disableMetrics | Out-Null
-          # vcpkg will skip packages already present in the binary cache.
-          .\vcpkg install libzip:x64-windows
-
       - name: Set up Python 3.12 (x64)
         uses: actions/setup-python@v4
         with:
@@ -94,7 +65,7 @@ jobs:
             Python2_ROOT_DIR=
           # Pass VCPKG, sccache, and also the MSVC env vars that ilammy sets
           # (LIB, INCLUDE, LIBPATH) so clang-cl can find the Windows SDK.
-          CIBW_ENVIRONMENT_PASS_WINDOWS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH LIB INCLUDE LIBPATH"
+          CIBW_ENVIRONMENT_PASS_WINDOWS: "SCCACHE_DIR SCCACHE_PATH LIB INCLUDE LIBPATH"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 

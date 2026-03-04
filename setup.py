@@ -81,13 +81,6 @@ class CMakeBuild(build_ext):
         else:
             print(f"WARNING: python{ver}.lib not found, linker may fail")
 
-        # Honour VCPKG on Windows
-        vcpkg_root = os.environ.get("VCPKG_ROOT")
-        if vcpkg_root:
-            cmake_args.append(
-                f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_root}/scripts/buildsystems/vcpkg.cmake"
-            )
-
         # Honour compiler launchers (ccache / sccache) if set in the environment
         for var in ("CMAKE_C_COMPILER_LAUNCHER", "CMAKE_CXX_COMPILER_LAUNCHER"):
             val = os.environ.get(var)
