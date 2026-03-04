@@ -20,6 +20,55 @@ from qgis.core import (
 
 from wrapper import run_topo, run_loom, run_octi
 
+
+# ---------------------------------------------------------------------------
+# QVariant → Python native converter
+# ---------------------------------------------------------------------------
+
+def _to_python_native(val):
+    """Recursively convert QGIS/Qt values to JSON-serialisable Python types.
+
+    Uses a type-name check rather than isinstance so that the function works
+    even when PyQt5 resolves QVariant differently across QGIS builds.
+    """
+    # Already primitive
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return val
+    if isinstance(val, str):
+        return val
+
+    # QVariant (NULL or wrapped value) ─ identified by class name to be safe
+    if type(val).__name__ == 'QVariant':
+        try:
+            if val.isNull():
+                return None
+            unwrapped = val.toPyObject() if hasattr(val, 'toPyObject') else val.value()
+            # Guard against toPyObject() returning QVariant again
+            if type(unwrapped).__name__ == 'QVariant':
+                return None
+            return _to_python_native(unwrapped)
+        except Exception:
+            try:
+                return str(val.toString()) if hasattr(val, 'toString') else None
+            except Exception:
+                return None
+
+    # Containers
+    if isinstance(val, list):
+        return [_to_python_native(x) for x in val]
+    if isinstance(val, dict):
+        return {str(k): _to_python_native(v) for k, v in val.items()}
+
+    # Fallback for any other non-serialisable type
+    return str(val)
+
+
 # ---------------------------------------------------------------------------
 # Load default configurations from algorithm_config.json (sits next to this
 # file in the plugin directory).  Falls back to empty dicts if missing.
@@ -106,23 +155,13 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         nested structures (e.g. the ``lines`` array on edges) survive a
         round-trip through QGIS memory layers unchanged.
         """
-        from qgis.PyQt.QtCore import QVariant as _QVariant
-
-        def _unwrap(v):
-            """Convert QVariant / QGIS NULL to a plain Python value."""
-            if isinstance(v, _QVariant):
-                v = v.value()  # returns None when QVariant is null/invalid
-            # QGIS sentinel NULL object
-            if v is None or str(v) == "NULL":
-                return None
-            return v
-
         features = []
         fields = [f.name() for f in layer.fields()]
         for qf in layer.getFeatures():
             props = {}
             for name in fields:
-                raw = _unwrap(qf[name])
+                raw = _to_python_native(qf[name])
+                # Parse back JSON-encoded strings (e.g. the ``lines`` array)
                 if isinstance(raw, str):
                     stripped = raw.strip()
                     if stripped and stripped[0] in ("{", "["):
@@ -197,10 +236,13 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         feedback.pushInfo(f"Converting input layers to GeoJSON …")
         node_feats = self._layer_to_geojson_features(nodes_layer)
         edge_feats = self._layer_to_geojson_features(edges_layer)
-        graph_json = json.dumps({
-            "type": "FeatureCollection",
-            "features": node_feats + edge_feats,
-        })
+        graph_json = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": node_feats + edge_feats,
+            },
+            default=_to_python_native,
+        )
         feedback.pushInfo(
             f"Input: {len(node_feats)} nodes, {len(edge_feats)} edges. "
             f"Running {self.displayName()} …"
