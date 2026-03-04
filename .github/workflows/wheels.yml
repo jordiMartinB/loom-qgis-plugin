@@ -132,6 +132,12 @@ jobs:
         run: sccache --show-stats
         shell: pwsh
 
+      - name: ccache stats (Linux)
+        if: runner.os != 'Windows'
+        env:
+          CCACHE_DIR: .ccache
+        run: ccache --show-stats
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:

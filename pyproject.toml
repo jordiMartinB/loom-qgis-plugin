@@ -23,8 +23,6 @@ before-build = [
     "ccache --show-stats",
 ]
 
-repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel} && ccache --show-stats"
-
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
 CMAKE_C_COMPILER_LAUNCHER = "ccache"
