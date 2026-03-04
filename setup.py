@@ -60,10 +60,18 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG={ext_dir}",
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO={ext_dir}",
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL={ext_dir}",
+            # Pin Python for both the Python3-namespaced FindPython module
+            # (used by our explicit find_package(Python3) call) and the
+            # unversioned Python-namespaced module that pybind11 calls
+            # internally when PYBIND11_FINDPYTHON is ON.
             f"-DPYTHON_EXECUTABLE={python_exe}",
+            f"-DPython_EXECUTABLE={python_exe}",
             f"-DPython3_EXECUTABLE={python_exe}",
+            f"-DPython_ROOT_DIR={python_root}",
             f"-DPython3_ROOT_DIR={python_root}",
+            "-DPython_FIND_STRATEGY=LOCATION",
             "-DPython3_FIND_STRATEGY=LOCATION",
+            "-DPython_FIND_REGISTRY=NEVER",
             "-DPython3_FIND_REGISTRY=NEVER",
         ]
 
@@ -106,7 +114,11 @@ class CMakeBuild(build_ext):
         # (e.g. 3.12) in the runner environment and select that interpreter
         # instead of the cibuildwheel-managed one, causing every .pyd to be
         # tagged cp312 regardless of the target Python version.
-        _PURGE_VARS = {"Python3_ROOT_DIR", "Python_ROOT_DIR", "Python2_ROOT_DIR"}
+        # We rely solely on the explicit -D flags above to pin the interpreter.
+        _PURGE_VARS = {
+            "Python_EXECUTABLE", "Python2_EXECUTABLE", "Python3_EXECUTABLE",
+            "Python_ROOT_DIR", "Python2_ROOT_DIR", "Python3_ROOT_DIR",
+        }
         cmake_env = {k: v for k, v in os.environ.items() if k not in _PURGE_VARS}
 
         subprocess.run(
