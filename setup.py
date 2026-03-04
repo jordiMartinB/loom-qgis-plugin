@@ -60,10 +60,18 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG={ext_dir}",
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO={ext_dir}",
             f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL={ext_dir}",
+            # Pin Python for both the Python3-namespaced FindPython module
+            # (used by our explicit find_package(Python3) call) and the
+            # unversioned Python-namespaced module that pybind11 calls
+            # internally when PYBIND11_FINDPYTHON is ON.
             f"-DPYTHON_EXECUTABLE={python_exe}",
+            f"-DPython_EXECUTABLE={python_exe}",
             f"-DPython3_EXECUTABLE={python_exe}",
+            f"-DPython_ROOT_DIR={python_root}",
             f"-DPython3_ROOT_DIR={python_root}",
+            "-DPython_FIND_STRATEGY=LOCATION",
             "-DPython3_FIND_STRATEGY=LOCATION",
+            "-DPython_FIND_REGISTRY=NEVER",
             "-DPython3_FIND_REGISTRY=NEVER",
         ]
 
@@ -73,34 +81,46 @@ class CMakeBuild(build_ext):
         else:
             print(f"WARNING: python{ver}.lib not found, linker may fail")
 
-        # Honour VCPKG on Windows
-        vcpkg_root = os.environ.get("VCPKG_ROOT")
-        if vcpkg_root:
-            cmake_args.append(
-                f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_root}/scripts/buildsystems/vcpkg.cmake"
-            )
-
         # Honour compiler launchers (ccache / sccache) if set in the environment
         for var in ("CMAKE_C_COMPILER_LAUNCHER", "CMAKE_CXX_COMPILER_LAUNCHER"):
             val = os.environ.get(var)
             if val:
                 cmake_args.append(f"-D{var}={val}")
 
-        # Use Ninja on Windows so CMAKE_C/CXX_COMPILER_LAUNCHER is honoured
-        # (the default Visual Studio generator silently ignores launcher vars)
-        if sys.platform == "win32":
-            cmake_args += ["-G", "Ninja"]
+        # Honour explicit compiler overrides (e.g. clang-cl / clang / gcc).
+        for var in ("CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER"):
+            val = os.environ.get(var)
+            if val:
+                cmake_args.append(f"-D{var}={val}")
+
+        # Always use Ninja: it respects CMAKE_C/CXX_COMPILER_LAUNCHER on all
+        # platforms (the default Visual Studio generator on Windows and Make on
+        # Linux silently ignore launcher vars).
+        cmake_args += ["-G", "Ninja"]
 
         build_dir = Path(self.build_temp) / ext.name
         build_dir.mkdir(parents=True, exist_ok=True)
 
+        # Strip Python-root env vars injected by CI (e.g. actions/setup-python).
+        # Without this, CMake's FindPython3 and pybind11's internal FindPython
+        # see Python3_ROOT_DIR / Python_ROOT_DIR pointing at the *host* Python
+        # (e.g. 3.12) in the runner environment and select that interpreter
+        # instead of the cibuildwheel-managed one, causing every .pyd to be
+        # tagged cp312 regardless of the target Python version.
+        # We rely solely on the explicit -D flags above to pin the interpreter.
+        _PURGE_VARS = {
+            "Python_EXECUTABLE", "Python2_EXECUTABLE", "Python3_EXECUTABLE",
+            "Python_ROOT_DIR", "Python2_ROOT_DIR", "Python3_ROOT_DIR",
+        }
+        cmake_env = {k: v for k, v in os.environ.items() if k not in _PURGE_VARS}
+
         subprocess.run(
             ["cmake", str(ext.source_dir), *cmake_args],
-            cwd=build_dir, check=True,
+            cwd=build_dir, check=True, env=cmake_env,
         )
         subprocess.run(
             ["cmake", "--build", ".", "--config", build_type, "--parallel"],
-            cwd=build_dir, check=True,
+            cwd=build_dir, check=True, env=cmake_env,
         )
 
 

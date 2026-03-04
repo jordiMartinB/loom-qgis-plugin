@@ -22,16 +22,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0   # needed for git describe
 
-      - name: Install libzip (vcpkg)
-        run: |
-          cd C:\vcpkg
-          git fetch
-          git checkout 2024-04-23
-          .\bootstrap-vcpkg.bat
-          .\vcpkg install libzip:x64-windows
-          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Set up Python 3.12 (x64)
         uses: actions/setup-python@v4
         with:
@@ -49,6 +39,14 @@ jobs:
           key: sccache-windows-${{ hashFiles('src/**', 'setup.py', 'setup.cfg') }}
           restore-keys: sccache-windows-
 
+      - name: Set up MSVC environment
+        # Required so clang-cl can find MSVC headers, libs and link.exe.
+        # LLVM/Clang (clang-cl, lld-link, ninja) are pre-installed on
+        # the windows-2022 runner at C:\Program Files\LLVM\bin.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Install cibuildwheel
         run: pip install cibuildwheel
 
@@ -56,8 +54,18 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
-          CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release SCCACHE_DIR=$SCCACHE_DIR CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH"
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_BUILD_TYPE=Release
+            CMAKE_C_COMPILER=clang-cl
+            CMAKE_CXX_COMPILER=clang-cl
+            CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH
+            CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH
+            Python3_ROOT_DIR=
+            Python_ROOT_DIR=
+            Python2_ROOT_DIR=
+          # Pass VCPKG, sccache, and also the MSVC env vars that ilammy sets
+          # (LIB, INCLUDE, LIBPATH) so clang-cl can find the Windows SDK.
+          CIBW_ENVIRONMENT_PASS_WINDOWS: "SCCACHE_DIR SCCACHE_PATH LIB INCLUDE LIBPATH"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 
@@ -99,8 +107,11 @@ jobs:
         env:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
+          # before-all and environment for Linux are defined in pyproject.toml.
+          # Only pass through the CCACHE_DIR so the cache action's path is used.
           CIBW_ENVIRONMENT_LINUX: >-
             CMAKE_BUILD_TYPE=Release
+            CMAKE_GENERATOR=Ninja
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/host/home/runner/.ccache

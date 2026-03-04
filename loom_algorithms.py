@@ -20,6 +20,55 @@ from qgis.core import (
 
 from wrapper import run_topo, run_loom, run_octi
 
+
+# ---------------------------------------------------------------------------
+# QVariant → Python native converter
+# ---------------------------------------------------------------------------
+
+def _to_python_native(val):
+    """Recursively convert QGIS/Qt values to JSON-serialisable Python types.
+
+    Uses a type-name check rather than isinstance so that the function works
+    even when PyQt5 resolves QVariant differently across QGIS builds.
+    """
+    # Already primitive
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return val
+    if isinstance(val, str):
+        return val
+
+    # QVariant (NULL or wrapped value) ─ identified by class name to be safe
+    if type(val).__name__ == 'QVariant':
+        try:
+            if val.isNull():
+                return None
+            unwrapped = val.toPyObject() if hasattr(val, 'toPyObject') else val.value()
+            # Guard against toPyObject() returning QVariant again
+            if type(unwrapped).__name__ == 'QVariant':
+                return None
+            return _to_python_native(unwrapped)
+        except Exception:
+            try:
+                return str(val.toString()) if hasattr(val, 'toString') else None
+            except Exception:
+                return None
+
+    # Containers
+    if isinstance(val, list):
+        return [_to_python_native(x) for x in val]
+    if isinstance(val, dict):
+        return {str(k): _to_python_native(v) for k, v in val.items()}
+
+    # Fallback for any other non-serialisable type
+    return str(val)
+
+
 # ---------------------------------------------------------------------------
 # Load default configurations from algorithm_config.json (sits next to this
 # file in the plugin directory).  Falls back to empty dicts if missing.
@@ -111,7 +160,8 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         for qf in layer.getFeatures():
             props = {}
             for name in fields:
-                raw = qf[name]
+                raw = _to_python_native(qf[name])
+                # Parse back JSON-encoded strings (e.g. the ``lines`` array)
                 if isinstance(raw, str):
                     stripped = raw.strip()
                     if stripped and stripped[0] in ("{", "["):
@@ -119,9 +169,23 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
                             raw = json.loads(stripped)
                         except json.JSONDecodeError:
                             pass
+                # Do not include null values in the props dict.  The C++
+                # loom backend accesses every optional field via .count() or
+                # .find() first, so a missing key is handled gracefully.
+                # A present-but-null JSON value causes type_error.302 on
+                # scalar fields (.get<std::string>() on null) and a different
+                # type error on array/object fields (range-for over a null or
+                # empty-string JSON value).
+                if raw is None:
+                    continue
                 props[name] = raw
 
             geom_json = json.loads(qf.geometry().asJson())
+            # Skip features whose geometry is null – the C++ loom backend
+            # cannot handle GeoJSON features with a null geometry field and
+            # will raise json.exception.type_error.302.
+            if geom_json is None:
+                continue
             features.append({
                 "type": "Feature",
                 "properties": props,
@@ -155,7 +219,10 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
             for k, v in (f.get("properties") or {}).items():
                 if isinstance(v, (dict, list)):
                     v = json.dumps(v)
-                qf[k] = str(v) if v is not None else None
+                # Never assign None to a QGIS field – it becomes a NULL
+                # QVariant which round-trips back as a JSON null and causes
+                # json.exception.type_error.302 in the C++ backend.
+                qf[k] = str(v) if v is not None else ""
 
             # Geometry
             geom_obj = f.get("geometry") or {}
@@ -182,14 +249,19 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         nodes_layer = self.parameterAsVectorLayer(parameters, self.INPUT_NODES, context)
         edges_layer = self.parameterAsVectorLayer(parameters, self.INPUT_EDGES, context)
         config_json = self.parameterAsString(parameters, self.CONFIG, context)
+        if not config_json or not config_json.strip():
+            config_json = "{}"
 
         feedback.pushInfo(f"Converting input layers to GeoJSON …")
         node_feats = self._layer_to_geojson_features(nodes_layer)
         edge_feats = self._layer_to_geojson_features(edges_layer)
-        graph_json = json.dumps({
-            "type": "FeatureCollection",
-            "features": node_feats + edge_feats,
-        })
+        graph_json = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": node_feats + edge_feats,
+            },
+            default=_to_python_native,
+        )
         feedback.pushInfo(
             f"Input: {len(node_feats)} nodes, {len(edge_feats)} edges. "
             f"Running {self.displayName()} …"

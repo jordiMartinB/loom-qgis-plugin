@@ -22,16 +22,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install libzip (vcpkg)
-        run: |
-          cd C:\vcpkg
-          git fetch
-          git checkout 2024-04-23
-          .\bootstrap-vcpkg.bat
-          .\vcpkg install libzip:x64-windows
-          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Set up Python 3.12 (x64)
         uses: actions/setup-python@v4
         with:
@@ -57,7 +47,7 @@ jobs:
           CMAKE_BUILD_TYPE: Release
           CIBW_BUILD: "cp312-* cp313-* cp314-*"
           CIBW_ENVIRONMENT: "CMAKE_BUILD_TYPE=Release SCCACHE_DIR=$SCCACHE_DIR CMAKE_C_COMPILER_LAUNCHER=$SCCACHE_PATH CMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_PATH"
-          CIBW_ENVIRONMENT_PASS: "VCPKG_ROOT SCCACHE_DIR SCCACHE_PATH"
+          CIBW_ENVIRONMENT_PASS: "SCCACHE_DIR SCCACHE_PATH"
           CIBW_ARCHS_WINDOWS: "AMD64"
         run: cibuildwheel --output-dir wheelhouse
 

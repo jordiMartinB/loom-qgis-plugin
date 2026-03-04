@@ -1,13 +1,14 @@
 [general]
-name=loom_qgis_plugin
-description=A QGIS plugin for managing and visualizing loom data.
-version=0.1.0
-author=Your Name
-email=your.email@example.com
+name=Loom QGIS plugin
+version=0.1.3
+author=Jordi Martin Benet
+email=jordi.martinbenet@gmail.com
 qgisMinimumVersion=3.0
 category=Plugins
 icon=resources/icon.png
-homepage=https://github.com/yourusername/loom-qgis-plugin
-repository=https://github.com/yourusername/loom-qgis-plugin
-tracker=https://github.com/yourusername/loom-qgis-plugin/issues
-longDescription=This plugin provides tools for managing and visualizing loom data within QGIS. It aims to enhance the user's ability to work with loom files and integrate them into their GIS workflows.
+homepage=https://github.com/jordiMartinB/loom-qgis-plugin/README.MD
+repository=https://github.com/jordiMartinB/loom-qgis-plugin
+tracker=https://github.com/jordiMartinB/loom-qgis-plugin/issues
+description=QGIS plugin implementing the LOOM treatment algorithm.
+
+longDescription=The Loom QGIS plugin implements the LOOM treatment algorithm to support spatial analysis within QGIS. It provides tools to run the algorithm on layers.See the repository for usage and documentation: https://github.com/jordiMartinB/loom-qgis-plugin

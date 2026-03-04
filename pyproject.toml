@@ -15,15 +15,17 @@ archs = ["x86_64"]
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64:latest"
 
 before-all = [
-    "dnf install -y epel-release && dnf install -y ccache libzip-devel cmake",
+    "dnf install -y epel-release && dnf install -y ccache ninja-build cmake",
 ]
 
 before-build = [
     "pip install pybind11[global]",
+    "ccache --show-stats",
 ]
 
 [tool.cibuildwheel.linux.environment]
 CMAKE_BUILD_TYPE = "Release"
+CMAKE_GENERATOR = "Ninja"
 CMAKE_C_COMPILER_LAUNCHER = "ccache"
 CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
 
@@ -31,10 +33,7 @@ CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]   # removed "x86"
 
-# No before-all here — libzip is installed by the workflow step in wheels.yml
-
 [tool.cibuildwheel.windows.environment]
 CMAKE_BUILD_TYPE = "Release"
-VCPKG_ROOT = "C:/vcpkg"
-CMAKE_C_COMPILER_LAUNCHER = "ccache"
-CMAKE_CXX_COMPILER_LAUNCHER = "ccache"
+CMAKE_C_COMPILER_LAUNCHER = "sccache"
+CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
