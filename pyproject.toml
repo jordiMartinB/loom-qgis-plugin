@@ -9,6 +9,8 @@ skip  = ["*-manylinux_i686", "*-musllinux*"]
 
 build-frontend = "build"
 
+after-build = "ccache --show-stats || sccache --show-stats || true"
+
 # ---------- Linux ----------
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
@@ -20,10 +22,6 @@ before-all = [
 
 before-build = [
     "pip install pybind11[global]",
-]
-
-after-build = [
-    "ccache --show-stats",
 ]
 
 [tool.cibuildwheel.linux.environment]

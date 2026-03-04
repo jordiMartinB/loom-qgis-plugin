@@ -106,12 +106,23 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         nested structures (e.g. the ``lines`` array on edges) survive a
         round-trip through QGIS memory layers unchanged.
         """
+        from qgis.PyQt.QtCore import QVariant as _QVariant
+
+        def _unwrap(v):
+            """Convert QVariant / QGIS NULL to a plain Python value."""
+            if isinstance(v, _QVariant):
+                v = v.value()  # returns None when QVariant is null/invalid
+            # QGIS sentinel NULL object
+            if v is None or str(v) == "NULL":
+                return None
+            return v
+
         features = []
         fields = [f.name() for f in layer.fields()]
         for qf in layer.getFeatures():
             props = {}
             for name in fields:
-                raw = qf[name]
+                raw = _unwrap(qf[name])
                 if isinstance(raw, str):
                     stripped = raw.strip()
                     if stripped and stripped[0] in ("{", "["):
