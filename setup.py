@@ -94,13 +94,22 @@ class CMakeBuild(build_ext):
         build_dir = Path(self.build_temp) / ext.name
         build_dir.mkdir(parents=True, exist_ok=True)
 
+        # Strip Python-root env vars injected by CI (e.g. actions/setup-python).
+        # Without this, CMake's FindPython3 and pybind11's internal FindPython
+        # see Python3_ROOT_DIR / Python_ROOT_DIR pointing at the *host* Python
+        # (e.g. 3.12) in the runner environment and select that interpreter
+        # instead of the cibuildwheel-managed one, causing every .pyd to be
+        # tagged cp312 regardless of the target Python version.
+        _PURGE_VARS = {"Python3_ROOT_DIR", "Python_ROOT_DIR", "Python2_ROOT_DIR"}
+        cmake_env = {k: v for k, v in os.environ.items() if k not in _PURGE_VARS}
+
         subprocess.run(
             ["cmake", str(ext.source_dir), *cmake_args],
-            cwd=build_dir, check=True,
+            cwd=build_dir, check=True, env=cmake_env,
         )
         subprocess.run(
             ["cmake", "--build", ".", "--config", build_type, "--parallel"],
-            cwd=build_dir, check=True,
+            cwd=build_dir, check=True, env=cmake_env,
         )
 
 
