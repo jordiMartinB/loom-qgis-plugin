@@ -1,6 +1,6 @@
 [general]
 name=Loom QGIS plugin
-version=1.3
+version=0.1.3
 author=Jordi Martin Benet
 email=jordi.martinbenet@gmail.com
 qgisMinimumVersion=3.0

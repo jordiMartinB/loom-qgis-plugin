@@ -169,9 +169,23 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
                             raw = json.loads(stripped)
                         except json.JSONDecodeError:
                             pass
+                # Do not include null values in the props dict.  The C++
+                # loom backend accesses every optional field via .count() or
+                # .find() first, so a missing key is handled gracefully.
+                # A present-but-null JSON value causes type_error.302 on
+                # scalar fields (.get<std::string>() on null) and a different
+                # type error on array/object fields (range-for over a null or
+                # empty-string JSON value).
+                if raw is None:
+                    continue
                 props[name] = raw
 
             geom_json = json.loads(qf.geometry().asJson())
+            # Skip features whose geometry is null – the C++ loom backend
+            # cannot handle GeoJSON features with a null geometry field and
+            # will raise json.exception.type_error.302.
+            if geom_json is None:
+                continue
             features.append({
                 "type": "Feature",
                 "properties": props,
@@ -205,7 +219,10 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
             for k, v in (f.get("properties") or {}).items():
                 if isinstance(v, (dict, list)):
                     v = json.dumps(v)
-                qf[k] = str(v) if v is not None else None
+                # Never assign None to a QGIS field – it becomes a NULL
+                # QVariant which round-trips back as a JSON null and causes
+                # json.exception.type_error.302 in the C++ backend.
+                qf[k] = str(v) if v is not None else ""
 
             # Geometry
             geom_obj = f.get("geometry") or {}
@@ -232,6 +249,8 @@ class _LoomBaseAlgorithm(QgsProcessingAlgorithm):
         nodes_layer = self.parameterAsVectorLayer(parameters, self.INPUT_NODES, context)
         edges_layer = self.parameterAsVectorLayer(parameters, self.INPUT_EDGES, context)
         config_json = self.parameterAsString(parameters, self.CONFIG, context)
+        if not config_json or not config_json.strip():
+            config_json = "{}"
 
         feedback.pushInfo(f"Converting input layers to GeoJSON …")
         node_feats = self._layer_to_geojson_features(nodes_layer)
